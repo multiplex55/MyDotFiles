@@ -308,8 +308,8 @@ config.keys = {
 
 	-- Opacity toggle
 	{
-		key = "O",
-		mods = "CTRL|ALT",
+		key = "o",
+		mods = "LEADER",
 		action = wezterm.action_callback(function(window, _)
 			local overrides = window:get_config_overrides() or {}
 			overrides.window_background_opacity = (overrides.window_background_opacity == 1.0) and 0.9 or 1.0
