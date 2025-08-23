@@ -58,7 +58,6 @@ config.colors = {
 }
 
 config.leader = { key = "Space", mods = "SHIFT", timeout_milliseconds = 2000 }
--- config.leader = { key = "a", mods = "CTRL|ALT", timeout_milliseconds = 2000 } -- still doesn't work
 
 wezterm.on("toggle-colorscheme", function(window, _pane)
 	local overrides = window:get_config_overrides() or {}
@@ -67,15 +66,20 @@ wezterm.on("toggle-colorscheme", function(window, _pane)
 end)
 
 -- ---------- Status: left shows mode badge; right shows time | workspace | battery ----------
+
 local function battery_text()
-	local info = wezterm.battery_info()
-	if not info or not info[1] then
+	local list = wezterm.battery_info() or {}
+	if #list == 0 then
 		return ""
 	end
-	local b = info[1]
-	local pct = math.floor((b.state_of_charge or 0) * 100 + 0.5)
-	local state = (b.state or ""):lower()
-	local glyph = state:find("charging") and "⚡" or (state:find("discharging") and "🔋" or "🔌")
+	local pct_sum, charging = 0, false
+	for _, b in ipairs(list) do
+		pct_sum = pct_sum + ((b.state_of_charge or 0) * 100)
+		local st = (b.state or ""):lower()
+		charging = charging or st:find("charging")
+	end
+	local pct = math.floor(pct_sum / #list + 0.5)
+	local glyph = charging and "⚡" or "🔋"
 	return string.format("%s %d%%", glyph, pct)
 end
 
@@ -105,20 +109,49 @@ local function mode_badge(mode)
 	})
 end
 
+local function cwd_status(pane)
+	local uri = pane and pane:get_current_working_dir()
+	if not uri then
+		return ""
+	end
+	uri = tostring(uri)
+	-- ssh://user@host/path  |  file:///C:/Users/...
+	local host = uri:match("^ssh://[^@]+@([^/]+)") or ""
+	local path = uri:gsub("^%a+://[^/]*/?", "/")
+	if path:match("^/[A-Za-z]:") then
+		path = path:sub(2)
+	end -- strip leading slash on Windows drive paths
+	local base = path:match("([^/\\]+)/*$") or path
+	if host ~= "" then
+		return string.format("  %s · %s  ", host, base)
+	else
+		return string.format("  %s  ", base)
+	end
+end
+
+local spin_frames = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" }
+local spin_i = 1
 wezterm.on("update-right-status", function(window, _pane)
+	spin_i = (spin_i % #spin_frames) + 1
 	local kt = window:active_key_table()
+
 	local mode = (kt == "leader" and "[LEADER]")
 		or (kt == "resize" and "[RESIZE]")
 		or (kt == "window" and "[WIN]")
+		or (kt == "copy_mode" and "[COPY]")
+		or (kt == "search_mode" and "[SEARCH]")
 		or ((window.leader_is_active and window:leader_is_active()) and "[LEADER]")
 		or ""
+	if mode == "[LEADER]" then
+		mode = mode .. " " .. spin_frames[spin_i]
+	end
 
 	local time = wezterm.strftime("%Y-%m-%d %H:%M")
 	local ws = mux.get_active_workspace() or "default"
 	local batt = battery_text()
 
-	local dbg =
-		string.format(" [kt:%s L:%s] ", tostring(kt), tostring(window.leader_is_active and window:leader_is_active()))
+	-- local dbg =
+	-- string.format(" [kt:%s L:%s] ", tostring(kt), tostring(window.leader_is_active and window:leader_is_active()))
 
 	-- Build the right status; put the mode badge first if active
 	local right = ""
@@ -132,9 +165,11 @@ wezterm.on("update-right-status", function(window, _pane)
 			{ Attribute = { Italic = true } },
 			{ Text = string.format("%s  |   %s  |  %s ", time, ws, batt) },
 		})
-	right = right .. wezterm.format({ { Foreground = { Color = "#888888" } }, { Text = dbg } })
+	right = right -- .. wezterm.format({ { Foreground = { Color = "#888888" } }, { Text = dbg } })
 
 	window:set_right_status(right)
+
+	window:set_left_status(wezterm.format({ { Text = cwd_status(window:active_pane()) } }))
 end)
 
 -- ---------- Broadcast helper (prompt → send one line to all panes in current tab) ----------
@@ -216,6 +251,27 @@ config.keys = {
 		key = "Space",
 		mods = "SHIFT",
 		action = act.ActivateKeyTable({ name = "leader", one_shot = false, timeout_milliseconds = 2000 }),
+	},
+
+	-- Quick reload
+	{ key = "r", mods = "LEADER", action = act.ReloadConfiguration },
+
+	-- One-shot paste of current working directory
+	{
+		key = "d",
+		mods = "LEADER",
+		action = wezterm.action_callback(function(win, pane)
+			local uri = pane:get_current_working_dir()
+			if not uri then
+				return
+			end
+			local path = tostring(uri):gsub("^%a+://[^/]*/?", "/")
+			if path:match("^/[A-Za-z]:") then
+				path = path:sub(2)
+			end
+			win:copy_to_clipboard(path)
+			win:toast_notification("WezTerm", "Copied CWD to clipboard", nil, 1200)
+		end),
 	},
 
 	{
