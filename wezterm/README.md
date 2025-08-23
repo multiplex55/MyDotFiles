@@ -4,6 +4,13 @@ The .config file goes to the following location
 
 `%USERPROFILE%`
 
+# WezTerm Cheatsheet
+
+Place your config file as:
+
+```
+%USERPROFILE%\.wezterm.lua
+```
 
 # WezTerm Config — Cheat Sheet
 
@@ -17,6 +24,37 @@ The .config file goes to the following location
   * **Left:** current folder (and remote host when over SSH)
 * **Theme toggle:** `Ctrl + Shift + Alt + E` (Cloud ⇄ Zenburn)
 * **Opacity toggle:** `Leader + o` (0.9 ⇄ 1.0)
+
+---
+
+## PowerShell setup for accurate CWD (required for CWD-based features)
+
+WezTerm learns the pane’s current directory from **OSC 7** escape codes. PowerShell doesn’t emit these by default, so add this to your **PowerShell profile**:
+
+```powershell
+# Open your profile:
+# notepad $PROFILE
+
+function prompt {
+  $p = $executionContext.SessionState.Path.CurrentLocation
+  $osc7 = ""
+  if ($p.Provider.Name -eq "FileSystem") {
+    $ansi_escape = [char]27
+    $provider_path = $p.ProviderPath -Replace "\\", "/"
+    $osc7 = "$ansi_escape]7;file://${env:COMPUTERNAME}/${provider_path}${ansi_escape}\"
+  }
+  "${osc7}PS $p$('>' * ($nestedPromptLevel + 1)) ";
+}
+```
+
+**Why this matters:**
+
+* Enables the **left status** to show the *correct* folder.
+* Makes CWD-dependent keybinds (e.g., “open in Explorer”) work.
+* For an immediate one-off test (no profile change), run in a pane:
+  `wezterm cli set-working-directory .`
+
+> Note: Remote panes (e.g., `ssh://…`) don’t map to local Explorer.
 
 ---
 
@@ -34,17 +72,9 @@ The .config file goes to the following location
 
 ---
 
-## Status Bar Details
-
-* **Left:** Current working directory (plus SSH host if remote)
-* **Right:** `[MODE]` (when active) · `YYYY-MM-DD HH:MM |  <workspace> | 🔋/⚡ <battery%>`
-* Updates frequently for smooth badges/clock
-
----
-
 ## Keybinds (most useful)
 
-### Leader combos
+### Leader combos (present)
 
 * `Leader + w` — enter **Window actions** (one-shot)
 * `Leader + e` — enter **Resize** mode
@@ -54,8 +84,14 @@ The .config file goes to the following location
 * `Leader + c` — **Copy mode**
 * `Leader + y` — Save scrollback to `Downloads\wezterm_scrollback_<timestamp>.txt`
 * `Leader + r` — **Reload configuration**
-* `Leader + d` — Copy **current directory** to clipboard (toast confirms)
 * `Leader + o` — Toggle **window opacity**
+
+### Leader combos (optional, add if you want)
+
+* `Leader + f` — **Open current directory in Windows Explorer** *(requires OSC-7 via `$PROFILE` above)*
+
+  > If you haven’t added this key yet, ask me and I’ll give you the exact snippet for your file.
+* `Leader + d` — **Copy current directory** to clipboard *(optional utility key)*
 
 ### Window actions (inside `[WIN]`)
 
@@ -81,10 +117,17 @@ The .config file goes to the following location
 
 ---
 
+## Status Bar Details
+
+* **Left:** Current working directory (plus SSH host if remote)
+* **Right:** `[MODE]` (when active) · `YYYY-MM-DD HH:MM |  <workspace> | 🔋/⚡ <battery%>`
+* Updates frequently for smooth badges/clock
+
+---
+
 ## Tips
 
-* **Workspaces:** Switch via `Leader + s` → **Workspaces** list. A workspace “closes” when all its tabs/windows are closed.
-* **CWD on left:** Quick context when bouncing between projects/SSH.
+* **Workspaces:** Switch via `Leader + s` → **Workspaces** list. A workspace “closes” when **all** its tabs/windows are closed.
 * **Fonts:** Install a Nerd Font (e.g., *FiraCode Nerd Font*) for full glyph coverage.
 
 ---
