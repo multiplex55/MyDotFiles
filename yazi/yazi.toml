@@ -1,0 +1,27 @@
+# %AppData%\yazi\config\yazi.toml
+
+[opener]
+# Open text in Neovim (blocks Yazi until you quit :q)
+nvim = [
+  { run = "nvim %*", block = true, desc = "Neovim", for = "windows" },
+]
+
+# Open with Notepad (detached)
+notepad = [
+  { run = 'notepad.exe %*', orphan = true, desc = "Notepad", for = "windows" },
+]
+
+# Fall back to the system default app (PDFs, images, etc.)
+open = [
+  { run = 'cmd /c start "" %*', orphan = true, desc = "Open (default app)", for = "windows" },
+]
+
+[open]
+# For text (including .toml), offer both Neovim and Notepad; default to the first (Neovim).
+prepend_rules = [
+  { mime = "text/*", use = ["nvim", "notepad", "open"] },
+  { name = "*.toml", use = ["nvim", "notepad", "open"] },
+  { name = "*.md", use = ["nvim", "notepad", "open"] },
+  { name = "*.txt", use = ["nvim", "notepad", "open"] },
+  { name = "*.rs", use = ["nvim", "notepad", "open"] },
+]
