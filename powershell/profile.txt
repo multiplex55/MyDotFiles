@@ -19,3 +19,19 @@ function y {
   Remove-Item -Path $tmp
 }
 
+# Open GitUI at the repo's top-level (falls back to current dir)
+function gitui-root {
+  $orig = Get-Location
+  $top  = git rev-parse --show-toplevel 2>$null
+  if ($LASTEXITCODE -eq 0 -and $top) { Set-Location $top }
+  gitui
+  Set-Location $orig
+}
+Set-Alias gui gitui-root   # so you can just run: gui
+
+
+
+
+
+
+

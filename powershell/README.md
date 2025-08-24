@@ -1,5 +1,5 @@
 # Powershell
 
-Powershell profil
+Powershell profile
 
 `notepad "%USERPROFILE%\Documents\PowerShell\Microsoft.PowerShell_profile.ps1"`
