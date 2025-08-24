@@ -85,6 +85,8 @@ function prompt {
 * `Leader + y` — Save scrollback to `Downloads\wezterm_scrollback_<timestamp>.txt`
 * `Leader + r` — **Reload configuration**
 * `Leader + o` — Toggle **window opacity**
+* `Leader + a` — Cycle Colors
+* `Leader + A` — Color Picker
 
 ### Leader combos (optional, add if you want)
 
