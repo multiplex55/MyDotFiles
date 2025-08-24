@@ -4,7 +4,7 @@ local mux = wezterm.mux
 
 local config = wezterm.config_builder()
 
--- ---------- Render / perf ----------
+------------ Render / perf ----------
 config.front_end = "OpenGL"
 config.max_fps = 144
 config.animation_fps = 60
@@ -12,11 +12,11 @@ config.prefer_egl = true
 config.term = "xterm-256color"
 config.status_update_interval = 10 -- refresh status frequently
 
--- ---------- Cursor ----------
+------------ Cursor ----------
 config.default_cursor_style = "BlinkingBlock"
 config.cursor_blink_rate = 500
 
--- ---------- Font ----------
+------------ Font ----------
 config.font = wezterm.font_with_fallback({
 	"FiraCode Nerd Font",
 	"FiraCode Nerd Font Mono",
@@ -24,7 +24,7 @@ config.font = wezterm.font_with_fallback({
 config.font_size = 12.0
 config.cell_width = 0.9
 
--- ---------- Window ----------
+------------ Window ----------
 config.window_background_opacity = 0.9
 config.window_padding = { left = 0, right = 0, top = 0, bottom = 0 }
 config.window_decorations = "TITLE | RESIZE" -- native Windows buttons
@@ -36,7 +36,7 @@ config.window_frame = {
 -- Dim inactive panes for visual focus
 config.inactive_pane_hsb = { saturation = 0.9, brightness = 0.75 }
 
--- ---------- Tabs (needed for status areas) ----------
+------------ Tabs (needed for status areas) ----------
 config.hide_tab_bar_if_only_one_tab = false
 config.use_fancy_tab_bar = true
 
@@ -45,44 +45,58 @@ config.default_prog = { "pwsh.exe", "-NoLogo" }
 
 -- ---------- Colors / toggling ----------
 config.color_scheme = "Cloud (terminal.sexy)"
+
+-- Dark base with amber/yellow highlights
 config.colors = {
-	background = "#0c0b0f",
-	cursor_border = "#bea3c7",
-	cursor_bg = "#bea3c7",
+	foreground = "#E6E6E6",
+	background = "#0B0E10",
+
+	-- Cursor & selection tuned toward amber
+	cursor_bg = "#FACC15", -- amber 400
+	cursor_border = "#FACC15",
+	cursor_fg = "#0B0E10",
+	selection_bg = "#1E1B0E", -- deep amber wash
+	selection_fg = "#FDE68A", -- soft yellow text
+
+	-- Subtle UI bits
+	scrollbar_thumb = "#4B5563",
+	split = "#1F2937",
+
+	-- Tab bar with a clear amber accent
 	tab_bar = {
-		background = "#0c0b0f",
-		active_tab = { bg_color = "#0c0b0f", fg_color = "#bea3c7" },
-		inactive_tab = { bg_color = "#0c0b0f", fg_color = "#f8f2f5" },
-		new_tab = { bg_color = "#0c0b0f", fg_color = "white" },
+		background = "#0B0E10",
+		active_tab = { bg_color = "#0B0E10", fg_color = "#FACC15", intensity = "Bold", underline = "Single" },
+		inactive_tab = { bg_color = "#0B0E10", fg_color = "#9CA3AF" },
+		inactive_tab_hover = { bg_color = "#111317", fg_color = "#FDE68A", italic = true },
+		new_tab = { bg_color = "#0B0E10", fg_color = "#FACC15" },
+		new_tab_hover = { bg_color = "#111317", fg_color = "#FDE68A", italic = true },
 	},
+
+	-- ANSI ramps nudged warmer (more yellow presence)
+	ansi = { "#0B0E10", "#F87171", "#A3E635", "#FACC15", "#60A5FA", "#D8B4FE", "#34D399", "#E5E7EB" },
+	brights = { "#1F2937", "#FCA5A5", "#BEF264", "#FDE68A", "#93C5FD", "#E9D5FF", "#6EE7B7", "#F9FAFB" },
 }
 
-config.leader = { key = "Space", mods = "SHIFT", timeout_milliseconds = 2000 }
+-- local function mode_badge(mode)
+-- 	-- Amber-first palette for badges
+-- 	local bg = "#EAB308" -- default (LEADER): amber 500
+-- 	if mode == "[WIN]" then
+-- 		bg = "#F59E0B"
+-- 	end -- amber 600
+-- 	if mode == "[RESIZE]" then
+-- 		bg = "#FACC15"
+-- 	end -- amber 400
+--
+-- 	return wezterm.format({
+-- 		{ Background = { Color = bg } },
+-- 		{ Foreground = { Color = "#0B0E10" } },
+-- 		{ Attribute = { Intensity = "Bold" } },
+-- 		{ Text = " " .. mode .. " " },
+-- 		"ResetAttributes",
+-- 	})
+-- end
 
-wezterm.on("toggle-colorscheme", function(window, _pane)
-	local overrides = window:get_config_overrides() or {}
-	overrides.color_scheme = (overrides.color_scheme == "Zenburn") and "Cloud (terminal.sexy)" or "Zenburn"
-	window:set_config_overrides(overrides)
-end)
-
--- ---------- Status: left shows mode badge; right shows time | workspace | battery ----------
-
-local function battery_text()
-	local list = wezterm.battery_info() or {}
-	if #list == 0 then
-		return ""
-	end
-	local pct_sum, charging = 0, false
-	for _, b in ipairs(list) do
-		pct_sum = pct_sum + ((b.state_of_charge or 0) * 100)
-		local st = (b.state or ""):lower()
-		charging = charging or st:find("charging")
-	end
-	local pct = math.floor(pct_sum / #list + 0.5)
-	local glyph = charging and "⚡" or "🔋"
-	return string.format("%s %d%%", glyph, pct)
-end
-
+-- OG colors
 local function mode_badge(mode)
 	-- Bright, obvious badge so it's impossible to miss
 	local bg = "#d33682" -- magenta-ish
@@ -107,6 +121,201 @@ local function mode_badge(mode)
 		{ Text = " " .. mode .. " " },
 		"ResetAttributes", -- clean reset
 	})
+end
+
+-- Make inactive panes only slightly dim (or not dim at all)
+config.inactive_pane_hsb = {
+	saturation = 1.0, -- keep colors vivid
+	brightness = 0.92, -- try 0.90–0.96; 1.0 disables dimming
+}
+
+wezterm.on("toggle-colorscheme", function(window, _pane)
+	local overrides = window:get_config_overrides() or {}
+	overrides.color_scheme = (overrides.color_scheme == "Zenburn") and "Cloud (terminal.sexy)" or "Zenburn"
+	window:set_config_overrides(overrides)
+end)
+
+-- === Themes ===
+local THEMES = {
+	{
+		name = "Amber Night", -- your current vibe
+		colors = {
+			foreground = "#E6E6E6",
+			background = "#0B0E10",
+			cursor_bg = "#FACC15",
+			cursor_border = "#FACC15",
+			cursor_fg = "#0B0E10",
+			selection_bg = "#1E1B0E",
+			selection_fg = "#FDE68A",
+			tab_bar = {
+				background = "#0B0E10",
+				active_tab = { bg_color = "#0B0E10", fg_color = "#FACC15", intensity = "Bold", underline = "Single" },
+				inactive_tab = { bg_color = "#0B0E10", fg_color = "#9CA3AF" },
+				inactive_tab_hover = { bg_color = "#111317", fg_color = "#FDE68A", italic = true },
+				new_tab = { bg_color = "#0B0E10", fg_color = "#FACC15" },
+				new_tab_hover = { bg_color = "#111317", fg_color = "#FDE68A", italic = true },
+			},
+			ansi = { "#0B0E10", "#F87171", "#A3E635", "#FACC15", "#60A5FA", "#D8B4FE", "#34D399", "#E5E7EB" },
+			brights = { "#1F2937", "#FCA5A5", "#BEF264", "#FDE68A", "#93C5FD", "#E9D5FF", "#6EE7B7", "#F9FAFB" },
+		},
+		accents = { leader = "#EAB308", win = "#F59E0B", resize = "#FACC15" },
+	},
+	{
+		name = "Forest Matrix", -- deep green, “hacker” monitor
+		colors = {
+			foreground = "#D8FCD8",
+			background = "#0A0F0A",
+			cursor_bg = "#22C55E",
+			cursor_border = "#22C55E",
+			cursor_fg = "#071107",
+			selection_bg = "#0F1A10",
+			selection_fg = "#CFF7CF",
+			tab_bar = {
+				background = "#0A0F0A",
+				active_tab = { bg_color = "#0A0F0A", fg_color = "#22C55E", intensity = "Bold" },
+				inactive_tab = { bg_color = "#0A0F0A", fg_color = "#7FBF7F" },
+				inactive_tab_hover = { bg_color = "#0C140C", fg_color = "#A7F3D0", italic = true },
+				new_tab = { bg_color = "#0A0F0A", fg_color = "#22C55E" },
+				new_tab_hover = { bg_color = "#0C140C", fg_color = "#A7F3D0", italic = true },
+			},
+			ansi = { "#0A0F0A", "#9EE493", "#74C69D", "#22C55E", "#22D3EE", "#C084FC", "#34D399", "#E1FFE1" },
+			brights = { "#122012", "#B7F3AD", "#98E6B8", "#86EFAC", "#67E8F9", "#E9D5FF", "#6EE7B7", "#F0FFF0" },
+		},
+		accents = { leader = "#22C55E", win = "#16A34A", resize = "#34D399" },
+	},
+	{
+		name = "Oceanic",
+		colors = {
+			foreground = "#E9F2FF",
+			background = "#0B1115",
+			cursor_bg = "#38BDF8",
+			cursor_border = "#38BDF8",
+			cursor_fg = "#081014",
+			selection_bg = "#0F1C24",
+			selection_fg = "#D1E7FF",
+			tab_bar = {
+				background = "#0B1115",
+				active_tab = { bg_color = "#0B1115", fg_color = "#38BDF8", intensity = "Bold" },
+				inactive_tab = { bg_color = "#0B1115", fg_color = "#91A4B7" },
+				inactive_tab_hover = { bg_color = "#0F161B", fg_color = "#7DD3FC", italic = true },
+				new_tab = { bg_color = "#0B1115", fg_color = "#38BDF8" },
+				new_tab_hover = { bg_color = "#0F161B", fg_color = "#7DD3FC", italic = true },
+			},
+			ansi = { "#0B1115", "#FCA5A5", "#86EFAC", "#FDE68A", "#7DD3FC", "#D8B4FE", "#67E8F9", "#ECF5FF" },
+			brights = { "#19242B", "#FEB2B2", "#BBF7D0", "#FEF3C7", "#BAE6FD", "#E9D5FF", "#A5F3FC", "#F8FBFF" },
+		},
+		accents = { leader = "#38BDF8", win = "#0EA5E9", resize = "#22D3EE" },
+	},
+	{
+		name = "Grape Soda",
+		colors = {
+			foreground = "#F3EAFF",
+			background = "#0E0A12",
+			cursor_bg = "#A78BFA",
+			cursor_border = "#A78BFA",
+			cursor_fg = "#0E0A12",
+			selection_bg = "#140F1D",
+			selection_fg = "#F5E1FF",
+			tab_bar = {
+				background = "#0E0A12",
+				active_tab = { bg_color = "#0E0A12", fg_color = "#C084FC", intensity = "Bold" },
+				inactive_tab = { bg_color = "#0E0A12", fg_color = "#B9A3CC" },
+				inactive_tab_hover = { bg_color = "#130E1A", fg_color = "#E879F9", italic = true },
+				new_tab = { bg_color = "#0E0A12", fg_color = "#C084FC" },
+				new_tab_hover = { bg_color = "#130E1A", fg_color = "#E879F9", italic = true },
+			},
+			ansi = { "#0E0A12", "#F472B6", "#A7F3D0", "#FDE68A", "#A78BFA", "#E879F9", "#67E8F9", "#F3EAFF" },
+			brights = { "#1B1324", "#FDA4AF", "#D1FAE5", "#FEF3C7", "#DDD6FE", "#F0ABFC", "#A5F3FC", "#FFFFFF" },
+		},
+		accents = { leader = "#A78BFA", win = "#C084FC", resize = "#E879F9" },
+	},
+}
+
+-- Track current theme (used by mode_badge)
+local CURRENT_THEME = THEMES[1]
+
+-- Apply a theme to a given window via config overrides
+local function apply_theme_to_window(window, theme)
+	local o = window:get_config_overrides() or {}
+	o.colors = o.colors or {}
+	-- shallow-copy color fields
+	for k, v in pairs(theme.colors or {}) do
+		o.colors[k] = v
+	end
+	window:set_config_overrides(o)
+end
+
+-- Cycle through themes
+wezterm.on("cycle-theme", function(window, _)
+	local idx = 1
+	for i, t in ipairs(THEMES) do
+		if t == CURRENT_THEME then
+			idx = i
+			break
+		end
+	end
+	idx = (idx % #THEMES) + 1
+	CURRENT_THEME = THEMES[idx]
+	apply_theme_to_window(window, CURRENT_THEME)
+	-- window:toast_notification("WezTerm", "Theme → " .. CURRENT_THEME.name, nil, 1000)
+end)
+
+-- Pick a theme by name (case-insensitive)
+wezterm.on("pick-theme", function(window, pane)
+	local names = {}
+	for _, t in ipairs(THEMES) do
+		table.insert(names, t.name)
+	end
+	window:perform_action(
+		wezterm.action.PromptInputLine({
+			description = "Theme name (" .. table.concat(names, ", ") .. "):",
+			action = wezterm.action_callback(function(win, _, line)
+				if not line or line == "" then
+					return
+				end
+				for _, t in ipairs(THEMES) do
+					if line:lower() == t.name:lower() then
+						CURRENT_THEME = t
+						apply_theme_to_window(win, t)
+						-- win:toast_notification("WezTerm", "Theme → " .. t.name, nil, 1000)
+						return
+					end
+				end
+				win:toast_notification("WezTerm", "No such theme: " .. line, nil, 1500)
+			end),
+		}),
+		pane
+	)
+end)
+
+-- Ensure new windows pick up the current theme
+wezterm.on("window-created", function(window, _)
+	if CURRENT_THEME then
+		apply_theme_to_window(window, CURRENT_THEME)
+	end
+end)
+wezterm.on("window-config-reloaded", function(window, _)
+	if CURRENT_THEME then
+		apply_theme_to_window(window, CURRENT_THEME)
+	end
+end)
+
+-- ---------- Status: left shows mode badge; right shows time | workspace | battery ----------
+
+local function battery_text()
+	local list = wezterm.battery_info() or {}
+	if #list == 0 then
+		return ""
+	end
+	local pct_sum, charging = 0, false
+	for _, b in ipairs(list) do
+		pct_sum = pct_sum + ((b.state_of_charge or 0) * 100)
+		local st = (b.state or ""):lower()
+		charging = charging or st:find("charging")
+	end
+	local pct = math.floor(pct_sum / #list + 0.5)
+	local glyph = charging and "⚡" or "🔋"
+	return string.format("%s %d%%", glyph, pct)
 end
 
 local function cwd_status(pane)
@@ -193,7 +402,10 @@ wezterm.on("broadcast_line_to_panes", function(window, pane)
 	)
 end)
 
--- ---------- Key tables ----------
+------------ Keybinds - Leader ----------
+config.leader = { key = "Space", mods = "SHIFT", timeout_milliseconds = 2000 }
+
+------------ Key tables ----------
 config.key_tables = {
 
 	leader = {
@@ -318,7 +530,42 @@ config.keys = {
 	},
 }
 
--- ---------- Size ----------
+-- Leader + f  → Open current directory in Windows Explorer
+table.insert(config.keys, {
+	key = "f",
+	mods = "LEADER",
+	action = wezterm.action_callback(function(window, pane)
+		local uri = pane:get_current_working_dir()
+		if not uri then
+			window:toast_notification("WezTerm", "No working directory for this pane", nil, 1500)
+			return
+		end
+
+		local s = tostring(uri)
+		if s:match("^file://") then
+			-- Convert file:// URI → Windows path
+			local path = s:gsub("^file://", "")
+			if path:match("^/[A-Za-z]:") then
+				path = path:sub(1 + 1)
+			end -- drop leading '/'
+			path = path:gsub("/", "\\") -- normalize slashes
+			wezterm.run_child_process({ "explorer.exe", path })
+		else
+			-- Remote (ssh://...) cannot be opened by Explorer directly
+			window:toast_notification("WezTerm", "Remote cwd can't be opened in Explorer", nil, 2000)
+		end
+	end),
+})
+
+------ COLOR Keybinds ------
+
+-- Leader + a : cycle themes
+table.insert(config.keys, { key = "a", mods = "LEADER", action = act.EmitEvent("cycle-theme") })
+
+-- Leader + A (Shift+a) : pick theme by name
+table.insert(config.keys, { key = "A", mods = "LEADER", action = act.EmitEvent("pick-theme") })
+
+------------ Size ----------
 config.initial_cols = 80
 
 return config
