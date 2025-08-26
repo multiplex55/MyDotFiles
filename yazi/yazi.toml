@@ -24,4 +24,6 @@ prepend_rules = [
   { name = "*.md", use = ["nvim", "notepad", "open"] },
   { name = "*.txt", use = ["nvim", "notepad", "open"] },
   { name = "*.rs", use = ["nvim", "notepad", "open"] },
+  { name = "*.yml", use = ["nvim", "notepad", "open"] },
+  { name = "*.json", use = ["nvim", "notepad", "open"] },
 ]
