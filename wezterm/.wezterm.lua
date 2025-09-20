@@ -10,7 +10,7 @@ config.max_fps = 144
 config.animation_fps = 60
 config.prefer_egl = true
 config.term = "xterm-256color"
-config.status_update_interval = 10 -- refresh status frequently
+config.status_update_interval = 50 -- refresh status frequently
 
 ------------ Cursor ----------
 config.default_cursor_style = "BlinkingBlock"
@@ -426,8 +426,8 @@ config.key_tables = {
 	-- Window/pane management (leader → w)
 	window = {
 		-- Split side-by-side / top-bottom
-		{ key = "b", action = act.SplitPane({ direction = "Right", size = { Percent = 50 } }) },
-		{ key = "v", action = act.SplitPane({ direction = "Down", size = { Percent = 50 } }) },
+		{ key = "b", action = act.SplitPane({ direction = "Down", size = { Percent = 50 } }) },
+		{ key = "v", action = act.SplitPane({ direction = "Right", size = { Percent = 50 } }) },
 		-- Close pane
 		{ key = "q", action = act.CloseCurrentPane({ confirm = true }) },
 		-- Pane select overlay
@@ -441,6 +441,33 @@ config.key_tables = {
 		{ key = "j", action = act.ActivatePaneDirection("Down") },
 		{ key = "k", action = act.ActivatePaneDirection("Up") },
 		{ key = "l", action = act.ActivatePaneDirection("Right") },
+  {
+    key = "r",
+    action = act.PromptInputLine({
+      description = "Rename workspace to:",
+      action = wezterm.action_callback(function(win, _pane, line)
+        if not line then return end
+        -- trim whitespace
+        line = line:gsub("^%s+", ""):gsub("%s+$", "")
+        if line == "" then return end
+
+        local old = mux.get_active_workspace()
+        if line == old then return end
+
+        -- prevent accidental duplicate names
+        local names = mux.get_workspace_names() or {}
+        for _, n in ipairs(names) do
+          if n == line then
+            win:toast_notification("WezTerm", "Workspace name already exists", nil, 1600)
+            return
+          end
+        end
+
+        mux.rename_workspace(old, line)
+        -- win:toast_notification("WezTerm", ("Workspace: %s → %s"):format(old, line), nil, 1500)
+      end),
+    }),
+  },
 		{ key = "Escape", action = "PopKeyTable" },
 	},
 
