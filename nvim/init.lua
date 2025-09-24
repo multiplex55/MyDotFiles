@@ -171,6 +171,9 @@ vim.api.nvim_create_autocmd('TextYankPost', {
 -- require 'kickstart.plugins.autopairs',
 -- require 'kickstart.plugins.neo-tree',
 -- require 'kickstart.plugins.gitsigns', -- adds gitsigns recommend keymaps
+vim.filetype.add {
+  extension = { koto = 'koto' },
+}
 
 require('lazy').setup({ {
   import = 'custom.plugins',
