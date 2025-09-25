@@ -105,25 +105,65 @@ return (function()
   end, { desc = '[U]I [t]heme Switcher' })
   --TABS
 
-  -- Insert 4 spaces when pressing Tab in insert mode
-  vim.keymap.set('i', '<Tab>', function()
-    return string.rep(' ', vim.bo.softtabstop)
-  end, { expr = true, desc = 'Insert 4 spaces' })
-  vim.keymap.set('i', '<S-Tab>', function()
-    local col = vim.fn.col '.' -- current column (1-based)
-    local line = vim.fn.getline '.' -- current line
+  local function get_softtabstop()
+    local tabstop = vim.bo.softtabstop
+    if tabstop == 0 then
+      tabstop = vim.bo.shiftwidth
+    end
+    if tabstop == 0 then
+      tabstop = vim.bo.tabstop
+    end
+    return tabstop
+  end
 
-    if col > 1 then
-      local start_col = math.max(1, col - 4)
-      local indent = line:sub(start_col, col - 1)
-
-      if indent == '    ' then
-        return '<BS><BS><BS><BS>'
-      end
+  local function handle_tab()
+    local ok_cmp, cmp = pcall(require, 'cmp')
+    if ok_cmp and cmp.visible() then
+      cmp.select_next_item()
+      return ''
     end
 
-    return ''
-  end, { expr = true, desc = 'Unindent 4 spaces' })
+    local ok_ls, ls = pcall(require, 'luasnip')
+    if ok_ls and ls.expand_or_jumpable() then
+      ls.expand_or_jump()
+      return ''
+    end
+
+    return string.rep(' ', get_softtabstop())
+  end
+
+  local function handle_s_tab()
+    local ok_cmp, cmp = pcall(require, 'cmp')
+    if ok_cmp and cmp.visible() then
+      cmp.select_prev_item()
+      return ''
+    end
+
+    local ok_ls, ls = pcall(require, 'luasnip')
+    if ok_ls and ls.jumpable(-1) then
+      ls.jump(-1)
+      return ''
+    end
+
+    local col = vim.fn.col '.'
+    if col <= 1 then
+      return ''
+    end
+
+    local line = vim.fn.getline '.'
+    local before_cursor = line:sub(1, col - 1)
+    local trailing_whitespace = before_cursor:match('(%s+)$')
+    if not trailing_whitespace or #trailing_whitespace == 0 then
+      return ''
+    end
+
+    local spaces_to_remove = math.min(#trailing_whitespace, get_softtabstop())
+    return string.rep('<BS>', spaces_to_remove)
+  end
+
+  -- Super Tab behaviour in insert/select mode
+  vim.keymap.set({ 'i', 's' }, '<Tab>', handle_tab, { expr = true, desc = 'Completion-aware Tab' })
+  vim.keymap.set({ 'i', 's' }, '<S-Tab>', handle_s_tab, { expr = true, desc = 'Completion-aware reverse Tab' })
   -- LuaSnip jump forward
   vim.keymap.set({ 'i', 's' }, '<C-j>', function()
     local ls = require 'luasnip'
