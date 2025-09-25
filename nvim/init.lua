@@ -28,6 +28,28 @@ vim.opt.relativenumber = true
 -- Enable mouse mode, can be useful for resizing splits for example!
 vim.opt.mouse = 'a'
 
+if vim.fn.has 'win32' == 1 then
+  local powershell_exe = vim.fn.exepath 'pwsh.exe'
+  if powershell_exe ~= '' then
+    local quoted_pwsh = string.format([[%q]], powershell_exe)
+    local pwsh_startup_flags = '-NoLogo -NoProfile'
+    local pwsh_terminal = string.format('%s %s', quoted_pwsh, pwsh_startup_flags)
+
+    vim.g.custom_pwsh_terminal_cmd = pwsh_terminal
+
+    vim.opt.shell = pwsh_terminal
+    vim.opt.shellcmdflag =
+      ' -ExecutionPolicy RemoteSigned -Command [Console]::InputEncoding=[Console]::OutputEncoding=[System.Text.Encoding]::UTF8;'
+    vim.opt.shellquote = ''
+    vim.opt.shellxquote = ''
+    vim.opt.shellpipe = '2>&1 | Out-File -Encoding UTF8 %s'
+    vim.opt.shellredir = '2>&1 | Out-File -Encoding UTF8 %s'
+
+    -- Keep the PowerShell profile OSC-7 snippet in sync with this setup so directory-aware
+    -- tools continue to work the same in both WezTerm and Neovim terminals.
+  end
+end
+
 -- Don't show the mode, since it's already in the status line
 vim.opt.showmode = false
 
