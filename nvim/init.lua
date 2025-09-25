@@ -31,11 +31,16 @@ vim.opt.mouse = 'a'
 if vim.fn.has 'win32' == 1 then
   local powershell_exe = vim.fn.exepath 'pwsh.exe'
   if powershell_exe ~= '' then
+    vim.opt.shell = powershell_exe
+    vim.opt.shellcmdflag =
+      '-NoLogo -NoProfile -ExecutionPolicy RemoteSigned -Command [Console]::InputEncoding=[Console]::OutputEncoding=[System.Text.Encoding]::UTF8;'
+    vim.opt.shellredir = '2>&1 | Out-File -Encoding UTF8 %s'
+    vim.opt.shellpipe = '2>&1 | Out-File -Encoding UTF8 %s'
+    vim.opt.shellquote = ''
+    vim.opt.shellxquote = ''
+
     local quoted_pwsh = string.format([[%q]], powershell_exe)
-
-    vim.g.custom_pwsh_terminal_cmd = quoted_pwsh
-
-    vim.opt.shell = quoted_pwsh
+    vim.g.custom_pwsh_terminal_cmd = string.format('%s -NoLogo', quoted_pwsh)
 
     -- Keep the PowerShell profile OSC-7 snippet in sync with this setup so directory-aware
     -- tools continue to work the same in both WezTerm and Neovim terminals.
