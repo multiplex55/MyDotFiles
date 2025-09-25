@@ -10,7 +10,7 @@ return {{
             if not shell or shell == '' then
                 local powershell_exe = vim.fn.exepath 'pwsh.exe'
                 if powershell_exe ~= '' then
-                    shell = string.format([[%q -NoLogo -NoProfile]], powershell_exe)
+                    shell = string.format([[%q]], powershell_exe)
                 end
             end
 
