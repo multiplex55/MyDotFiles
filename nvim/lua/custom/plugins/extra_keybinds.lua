@@ -152,7 +152,7 @@ return (function()
 
     local line = vim.fn.getline '.'
     local before_cursor = line:sub(1, col - 1)
-    local trailing_whitespace = before_cursor:match('(%s+)$')
+    local trailing_whitespace = before_cursor:match '(%s+)$'
     if not trailing_whitespace or #trailing_whitespace == 0 then
       return ''
     end
@@ -349,6 +349,122 @@ return (function()
     end
   end, { desc = '[C]ode [Z]ig [I]nlay hints toggle' })
 
+  -- =========================
+  -- [Code AHK] keymaps
+  -- =========================
+
+  -- Resolve AHK paths from your single source module if present, with sane fallbacks
+  local function ahk_paths()
+    local p = {}
+    local ok, mod = pcall(require, 'custom.ahk2')
+    if ok and mod.paths then
+      p.ahk_exe = mod.paths.ahk_exe
+    end
+    p.ahk_exe = p.ahk_exe or (vim.g.ahk2_exe or [[C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe]])
+    p.compiler = vim.g.ahk2_compiler or [[C:\Program Files\AutoHotkey\Compiler\Ahk2Exe.exe]]
+    return p
+  end
+
+  -- Small helpers
+  local function curfile()
+    return vim.fn.expand '%:p'
+  end
+  local function curdir()
+    return vim.fn.expand '%:p:h'
+  end
+  local function curbasename()
+    return vim.fn.expand '%:t:r'
+  end
+
+  -- [car] Run current script (normal)
+  vim.keymap.set('n', '<leader>chr', function()
+    vim.cmd.write()
+    local p = ahk_paths()
+    run_build_cmd({ p.ahk_exe, curfile() }, 'AHK: run current')
+  end, { desc = '[C]ode a[h]k [R]un current' })
+
+  -- [cae] Run current script with /ErrorStdOut (diagnostics in terminal/Overseer)
+  vim.keymap.set('n', '<leader>che', function()
+    vim.cmd.write()
+    local p = ahk_paths()
+    run_build_cmd({ p.ahk_exe, '/ErrorStdOut', curfile() }, 'AHK: run (stderr)')
+  end, { desc = '[C]ode a[h]k Run with [E]rrors (/ErrorStdOut)' })
+
+  -- [caa] Run current script as Admin (UAC prompt)
+  vim.keymap.set('n', '<leader>chA', function()
+    vim.cmd.write()
+    local p = ahk_paths()
+    -- Use PowerShell so we can request elevation cleanly
+    local ps = ([[Start-Process -Verb RunAs -FilePath "%s" -ArgumentList "%s"]]):format(p.ahk_exe, curfile())
+    run_build_cmd({ 'powershell', '-NoProfile', '-Command', ps }, 'AHK: run as admin')
+  end, { desc = '[C]ode a[h]k Run as [A]dmin' })
+
+  -- [cac] Compile current script to exe (bin/<name>.exe). Uses icon <name>.ico if present.
+  vim.keymap.set('n', '<leader>chc', function()
+    vim.cmd.write()
+    local p = ahk_paths()
+    local infile = curfile()
+    local outdir = curdir() .. '\\bin'
+    local outfile = outdir .. '\\' .. curbasename() .. '.exe'
+    local icon = curdir() .. '\\' .. curbasename() .. '.ico'
+
+    if vim.fn.isdirectory(outdir) == 0 then
+      vim.fn.mkdir(outdir, 'p')
+    end
+
+    local args = { '/in', infile, '/out', outfile }
+    if vim.loop.fs_stat(icon) then
+      table.insert(args, '/icon')
+      table.insert(args, icon)
+    end
+    -- If you want to force a particular base exe, add:
+    -- table.insert(args, '/base'); table.insert(args, [[C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe]])
+
+    local cmd = vim.list_extend({ p.compiler }, args)
+    run_build_cmd(cmd, 'AHK: compile to exe')
+  end, { desc = '[C]ode a[h]k [C]ompile to exe' })
+
+  -- [cak] Kill all running AutoHotkey v2 processes (careful—global!)
+  vim.keymap.set('n', '<leader>chk', function()
+    run_build_cmd({ 'taskkill', '/F', '/IM', 'AutoHotkey64.exe' }, 'AHK: kill all v2 processes')
+  end, { desc = '[C]ode a[h]k [K]ill all AutoHotkey v2' })
+
+  -- [cao] Open current script in Explorer (selected)
+  vim.keymap.set('n', '<leader>cho', function()
+    run_build_cmd({ 'explorer.exe', '/select,' .. curfile() }, 'AHK: open in Explorer')
+  end, { desc = '[C]ode a[h]k [O]pen in Explorer' })
+
+  -- =========================
+  -- Utility
+  -- =========================
+
+  -- <leader>E → Reveal current file in Explorer (selected)
+  vim.keymap.set('n', '<leader>E', function()
+    local file = vim.api.nvim_buf_get_name(0)
+    if file == '' then
+      vim.notify('No file associated with this buffer', vim.log.levels.WARN)
+      return
+    end
+
+    -- Normalize to backslashes for Explorer
+    file = file:gsub('/', '\\')
+
+    -- Use cmd's `start` so Explorer honors /select and returns immediately
+    local arg = '/select,"' .. file .. '"'
+    vim.fn.jobstart({ 'cmd.exe', '/C', 'start', '', 'explorer.exe', arg }, { detach = true })
+  end, { desc = '[Explorer] Reveal current file' })
+
+  -- <leader>p  → Copy current buffer's full path to clipboard
+  vim.keymap.set('n', '<leader>p', function()
+    local file = vim.fn.expand '%:p'
+    if file == '' then
+      vim.notify('No file associated with this buffer', vim.log.levels.WARN)
+      return
+    end
+    vim.fn.setreg('+', file) -- system clipboard
+    vim.fn.setreg('"', file) -- default register (nice for immediate paste)
+    vim.notify('Copied path: ' .. file)
+  end, { desc = '[Path] Copy full path' })
+
   return {}
 end)()
-
