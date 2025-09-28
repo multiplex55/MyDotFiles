@@ -23,6 +23,23 @@ return (function()
   vim.keymap.set('n', '<leader>ccu', '<cmd>tabnew | term cargo update<cr>', { desc = '[C]ode [C]argo [U]pdate deps' })
   vim.keymap.set('n', '<leader>ccf', '<cmd>tabnew | term cargo fmt<cr>', { desc = '[C]ode [C]argo [F]ormat code' })
   vim.keymap.set('n', '<leader>ccl', '<cmd>tabnew | term cargo clippy<cr>', { desc = '[C]ode [C]argo C[L]ippy lint' })
+  -- Rust tooling under <leader>cr
+  vim.keymap.set('n', '<leader>cr', '<Nop>', { desc = '[C]ode [R]ust' })
+  vim.keymap.set('n', '<leader>crd', function()
+    vim.cmd.RustDocstring()
+  end, { desc = '[C]ode [R]ust [D]ocstring current item' })
+  vim.keymap.set('n', '<leader>crD', function()
+    vim.cmd.RustDocstringAllKinds()
+  end, { desc = '[C]ode [R]ust [D]ocstring all kinds' })
+  vim.keymap.set('n', '<leader>crr', function()
+    vim.cmd.RustLsp { 'runnables' }
+  end, { desc = '[C]ode [R]ust [R]unnables' })
+  vim.keymap.set('n', '<leader>crp', function()
+    vim.cmd.RustLsp { 'parentModule' }
+  end, { desc = '[C]ode [R]ust [P]arent module' })
+  vim.keymap.set('n', '<leader>crm', function()
+    vim.cmd.RustLsp { 'expandMacro' }
+  end, { desc = '[C]ode [R]ust expand [M]acro' })
   -- Increase font size
   vim.keymap.set('n', '<C-=>', function()
     local font = vim.o.guifont
