@@ -10,6 +10,18 @@ A starting point for Neovim that is:
 
 **NOT** a Neovim distribution, but instead a starting point for your configuration.
 
+## Custom Keymaps
+
+### Rust tools
+
+| Shortcut | Action |
+| --- | --- |
+| `<leader>crd` | Generate a docstring for the Rust item under the cursor with `:RustDocstring`. |
+| `<leader>crD` | Insert docstrings for every supported Rust item in the current buffer via `:RustDocstringAllKinds`. |
+| `<leader>crr` | Open the `RustLsp runnables` picker. |
+| `<leader>crp` | Jump to the parent module using `RustLsp parentModule`. |
+| `<leader>crm` | Expand the macro call at the cursor through `RustLsp expandMacro`. |
+
 ## Installation
 
 ### Install Neovim
