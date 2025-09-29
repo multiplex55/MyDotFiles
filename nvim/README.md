@@ -21,6 +21,9 @@ A starting point for Neovim that is:
 | `<leader>crr` | Open the `RustLsp runnables` picker. |
 | `<leader>crp` | Jump to the parent module using `RustLsp parentModule`. |
 | `<leader>crm` | Expand the macro call at the cursor through `RustLsp expandMacro`. |
+| `<leader>ccD` | Ask `crates.nvim` to open the metadata popup for the crate under the cursor, giving you version, feature, and documentation links without leaving the manifest. |
+| `<leader>ccU` | Upgrade the crate at the cursor directly to the newest release on crates.io, rewriting the dependency specification to match the latest published version. |
+| `<leader>ccu` | Update the crate at the cursor only within the current semver requirement, keeping compatibility while bumping to the most recent allowed version. |
 
 ## Installation
 
