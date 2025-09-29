@@ -10,30 +10,30 @@ return (function()
   end, {
     desc = '[n]im c[p]p [r]un release',
   })
-  -- Rust-related commands under <leader>cc
+  -- Rust-focused cargo utilities under <leader>cc
   vim.keymap.set('n', '<leader>cc', '<Nop>', { desc = '[C]ode [C]argo' })
-  vim.keymap.set('n', '<leader>ccr', '<cmd>tabnew | term cargo run<cr>', { desc = '[C]ode [C]argo [R]un' })
-  vim.keymap.set('n', '<leader>ccR', '<cmd>tabnew | term cargo run --release<cr>', { desc = '[C]ode [C]argo Run --[R]elease' })
-  vim.keymap.set('n', '<leader>ccb', '<cmd>tabnew | term cargo build<cr>', { desc = '[C]ode [C]argo [B]uild' })
-  vim.keymap.set('n', '<leader>ccB', '<cmd>tabnew | term cargo build --release<cr>', { desc = '[C]ode [C]argo Build --[R]elease' })
-  vim.keymap.set('n', '<leader>cct', '<cmd>tabnew | term cargo nextest run --no-capture --test-threads=1<cr>', { desc = '[C]ode [C]argo [T]est' })
-  vim.keymap.set('n', '<leader>ccC', '<cmd>tabnew | term cargo check<cr>', { desc = '[C]ode [C]argo [C]heck' })
   vim.keymap.set('n', '<leader>ccc', '<cmd>tabnew | term cargo clean<cr>', { desc = '[C]ode [C]argo [C]lean' })
   vim.keymap.set('n', '<leader>ccd', '<cmd>tabnew | term cargo doc --open<cr>', { desc = '[C]ode [C]argo [D]oc open' })
   vim.keymap.set('n', '<leader>ccu', '<cmd>tabnew | term cargo update<cr>', { desc = '[C]ode [C]argo [U]pdate deps' })
   vim.keymap.set('n', '<leader>ccf', '<cmd>tabnew | term cargo fmt<cr>', { desc = '[C]ode [C]argo [F]ormat code' })
-  vim.keymap.set('n', '<leader>ccl', '<cmd>tabnew | term cargo clippy<cr>', { desc = '[C]ode [C]argo C[L]ippy lint' })
-  -- Rust tooling under <leader>cr
+  -- Rust execution, testing, and linting under <leader>cr
   vim.keymap.set('n', '<leader>cr', '<Nop>', { desc = '[C]ode [R]ust' })
+  vim.keymap.set('n', '<leader>crr', '<cmd>tabnew | term cargo run<cr>', { desc = '[C]ode [R]ust [R]un' })
+  vim.keymap.set('n', '<leader>crR', '<cmd>tabnew | term cargo run --release<cr>', { desc = '[C]ode [R]ust Run --[R]elease' })
+  vim.keymap.set('n', '<leader>crb', '<cmd>tabnew | term cargo build<cr>', { desc = '[C]ode [R]ust [B]uild' })
+  vim.keymap.set('n', '<leader>crB', '<cmd>tabnew | term cargo build --release<cr>', { desc = '[C]ode [R]ust Build --[R]elease' })
+  vim.keymap.set('n', '<leader>crt', '<cmd>tabnew | term cargo nextest run --no-capture --test-threads=1<cr>', { desc = '[C]ode [R]ust [T]est' })
+  vim.keymap.set('n', '<leader>crc', '<cmd>tabnew | term cargo check<cr>', { desc = '[C]ode [R]ust [C]heck' })
+  vim.keymap.set('n', '<leader>crl', '<cmd>tabnew | term cargo clippy<cr>', { desc = '[C]ode [R]ust C[L]ippy lint' })
   vim.keymap.set('n', '<leader>crd', function()
     vim.cmd.RustDocstring()
   end, { desc = '[C]ode [R]ust [D]ocstring current item' })
   vim.keymap.set('n', '<leader>crD', function()
     vim.cmd.RustDocstringAllKinds()
   end, { desc = '[C]ode [R]ust [D]ocstring all kinds' })
-  vim.keymap.set('n', '<leader>crr', function()
+  vim.keymap.set('n', '<leader>cru', function()
     vim.cmd.RustLsp { 'runnables' }
-  end, { desc = '[C]ode [R]ust [R]unnables' })
+  end, { desc = '[C]ode [R]ust R[U]nnables' })
   vim.keymap.set('n', '<leader>crp', function()
     vim.cmd.RustLsp { 'parentModule' }
   end, { desc = '[C]ode [R]ust [P]arent module' })
