@@ -22,6 +22,7 @@ return (function()
   vim.keymap.set('n', '<leader>crR', '<cmd>tabnew | term cargo run --release<cr>', { desc = '[C]ode [R]ust Run --[R]elease' })
   vim.keymap.set('n', '<leader>crb', '<cmd>tabnew | term cargo build<cr>', { desc = '[C]ode [R]ust [B]uild' })
   vim.keymap.set('n', '<leader>crB', '<cmd>tabnew | term cargo build --release<cr>', { desc = '[C]ode [R]ust Build --[R]elease' })
+  vim.keymap.set('n', '<leader>crT', '<cmd>tabnew | term cargo test<cr>', { desc = '[C]ode [R]ust [T]est suite' })
   vim.keymap.set('n', '<leader>crt', '<cmd>tabnew | term cargo nextest run --no-capture --test-threads=1<cr>', { desc = '[C]ode [R]ust [T]est' })
   vim.keymap.set('n', '<leader>crc', '<cmd>tabnew | term cargo check<cr>', { desc = '[C]ode [R]ust [C]heck' })
   vim.keymap.set('n', '<leader>crl', '<cmd>tabnew | term cargo clippy<cr>', { desc = '[C]ode [R]ust C[L]ippy lint' })
@@ -34,6 +35,9 @@ return (function()
   vim.keymap.set('n', '<leader>cru', function()
     vim.cmd.RustLsp { 'runnables' }
   end, { desc = '[C]ode [R]ust R[U]nnables' })
+  vim.keymap.set('n', '<leader>crg', function()
+    vim.cmd.RustLsp { 'debuggables' }
+  end, { desc = '[C]ode [R]ust debu[g]gables' })
   vim.keymap.set('n', '<leader>crp', function()
     vim.cmd.RustLsp { 'parentModule' }
   end, { desc = '[C]ode [R]ust [P]arent module' })
