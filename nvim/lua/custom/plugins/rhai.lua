@@ -95,11 +95,20 @@ return {
           local root = root_pattern(fname) or util.path.dirname(fname)
           root = root or vim.loop.cwd() or vim.fn.getcwd()
 
-          vim.lsp.start({
+          local client_id = vim.lsp.start({
             name = 'rhai-lsp',
             cmd = { 'rhai', 'lsp', 'stdio' },
             root_dir = root,
           }, { bufnr = buf })
+
+          if client_id then
+            vim.notify(
+              string.format('Rhai LSP attached (client id: %s)', client_id),
+              vim.log.levels.INFO
+            )
+          else
+            vim.notify('Failed to start Rhai LSP', vim.log.levels.ERROR)
+          end
 
           local function run_cli(args, term_cmd)
             if not has_rhai_cli() then
