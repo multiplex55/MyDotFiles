@@ -44,6 +44,17 @@ return {
           if vim.lsp.get_clients({ bufnr = args.buf, name = 'koto-ls' })[1] then
             return
           end
+
+          if vim.fn.executable('koto-ls') == 0 then
+            vim.notify('koto-ls not found on PATH. Install via `cargo install koto-ls` for language server support.', vim.log.levels.WARN)
+            return
+          end
+
+          local capabilities = vim.lsp.protocol.make_client_capabilities()
+          local ok_cmp, cmp_nvim_lsp = pcall(require, 'cmp_nvim_lsp')
+          if ok_cmp and cmp_nvim_lsp and cmp_nvim_lsp.default_capabilities then
+            capabilities = cmp_nvim_lsp.default_capabilities(capabilities)
+          end
           local fname = vim.api.nvim_buf_get_name(args.buf)
           local root = util.root_pattern '.git'(fname) or util.path.dirname(fname)
 
@@ -51,6 +62,7 @@ return {
             name = 'koto-ls',
             cmd = { 'koto-ls' }, -- ensure it's on PATH (cargo install koto-ls)
             root_dir = root,
+            capabilities = capabilities,
           }, { bufnr = args.buf })
         end,
       })
