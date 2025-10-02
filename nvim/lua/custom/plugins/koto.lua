@@ -36,6 +36,13 @@ return {
       -- Use lspconfig.util just for root detection (safe submodule)
       local util = require 'lspconfig.util'
 
+      -- Prepare LSP capabilities (optionally enhanced by nvim-cmp)
+      local capabilities = vim.lsp.protocol.make_client_capabilities()
+      local ok_cmp, cmp = pcall(require, 'cmp_nvim_lsp')
+      if ok_cmp and cmp then
+        capabilities = cmp.default_capabilities(capabilities)
+      end
+
       -- Start koto-ls on Koto buffers
       vim.api.nvim_create_autocmd('FileType', {
         pattern = 'koto',
@@ -51,6 +58,7 @@ return {
             name = 'koto-ls',
             cmd = { 'koto-ls' }, -- ensure it's on PATH (cargo install koto-ls)
             root_dir = root,
+            capabilities = capabilities,
           }, { bufnr = args.buf })
         end,
       })
