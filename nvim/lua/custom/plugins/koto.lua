@@ -47,10 +47,17 @@ return {
           local fname = vim.api.nvim_buf_get_name(args.buf)
           local root = util.root_pattern '.git'(fname) or util.path.dirname(fname)
 
+          local capabilities = vim.lsp.protocol.make_client_capabilities()
+          local ok, cmp_lsp = pcall(require, 'cmp_nvim_lsp')
+          if ok and cmp_lsp and type(cmp_lsp.default_capabilities) == 'function' then
+            capabilities = cmp_lsp.default_capabilities(capabilities)
+          end
+
           vim.lsp.start({
             name = 'koto-ls',
             cmd = { 'koto-ls' }, -- ensure it's on PATH (cargo install koto-ls)
             root_dir = root,
+            capabilities = capabilities,
           }, { bufnr = args.buf })
         end,
       })
