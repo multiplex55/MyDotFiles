@@ -22,6 +22,7 @@ return {
         'nim',
         'zig',
         'koto_ls',
+        'rhai',
       },
       -- Autoinstall languages that are not installed
       auto_install = true,

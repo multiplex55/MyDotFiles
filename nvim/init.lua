@@ -161,6 +161,7 @@ vim.filetype.add {
   extension = {
     ahk = 'autohotkey', -- or "ahk" if you prefer; your lspconfig includes both
     ah2 = 'autohotkey',
+    rhai = 'rhai',
   },
   pattern = {
     ['%.AHK$'] = 'autohotkey', -- handle uppercase on Windows too
