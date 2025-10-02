@@ -20,6 +20,7 @@ return {
         'vimdoc',
         'go',
         'nim',
+        'rhai',
         'zig',
         'koto_ls',
       },
