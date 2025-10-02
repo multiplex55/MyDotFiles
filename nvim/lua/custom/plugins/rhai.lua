@@ -43,6 +43,25 @@ return {
         return vim.fn.getcwd()
       end
 
+      local notified_roots = {}
+
+      local function notify_status(success, root, err)
+        root = root or vim.fn.getcwd()
+        if success then
+          if notified_roots[root] then
+            return
+          end
+          notified_roots[root] = true
+          vim.notify(('Rhai tooling ready (%s)'):format(root), vim.log.levels.INFO)
+          return
+        end
+        local msg = 'Failed to start Rhai tooling'
+        if err and err ~= '' then
+          msg = ('%s: %s'):format(msg, err)
+        end
+        vim.notify(msg, vim.log.levels.ERROR)
+      end
+
       local function has_formatter(bufnr)
         for _, client in ipairs(vim.lsp.get_clients { bufnr = bufnr }) do
           if client.supports_method and client:supports_method 'textDocument/formatting' then
@@ -86,12 +105,14 @@ return {
           local root = get_root(fname)
 
           if vim.lsp.get_clients { bufnr = buf, name = 'rhai-lsp' }[1] then
+            notify_status(true, root)
             return
           end
 
           for _, client in ipairs(vim.lsp.get_clients { name = 'rhai-lsp' }) do
             if client.config and client.config.root_dir == root then
               vim.lsp.buf_attach_client(buf, client.id)
+              notify_status(true, root)
               return
             end
           end
@@ -100,11 +121,22 @@ return {
             return
           end
 
-          vim.lsp.start({
+          local ok, result = pcall(vim.lsp.start, {
             name = 'rhai-lsp',
             cmd = { 'rhai', 'lsp', 'stdio' },
             root_dir = root,
           }, { bufnr = buf })
+
+          if not ok then
+            notify_status(false, root, result)
+            return
+          end
+
+          if result then
+            notify_status(true, root)
+          else
+            notify_status(false, root)
+          end
         end,
       })
 
