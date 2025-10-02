@@ -101,11 +101,6 @@ return {
             root_dir = root,
           }, { bufnr = buf })
 
-          local function map(lhs, rhs, desc, mode)
-            mode = mode or 'n'
-            vim.keymap.set(mode, lhs, rhs, { buffer = buf, desc = desc })
-          end
-
           local function run_cli(args, term_cmd)
             if not has_rhai_cli() then
               return
@@ -115,40 +110,43 @@ return {
             end
           end
 
-          map('<leader>cRf', function()
+          vim.keymap.set('n', '<leader>cRf', function()
             vim.lsp.buf.format { async = false }
-          end, '[C]ode [R]hai [F]ormat')
-          map('<leader>cRh', vim.lsp.buf.hover, '[C]ode [R]hai [H]over')
-          map('<leader>cRg', vim.lsp.buf.definition, '[C]ode [R]hai [G]oto def')
-          map('<leader>cRn', vim.lsp.buf.rename, '[C]ode [R]hai Re[n]ame')
-          map('<leader>cRa', vim.lsp.buf.code_action, '[C]ode [R]hai Code [A]ction', { 'n', 'x' })
+          end, { buffer = buf, desc = '[C]ode [R]hai [F]ormat' })
+          vim.keymap.set('n', '<leader>cRh', vim.lsp.buf.hover, { buffer = buf, desc = '[C]ode [R]hai [H]over' })
+          vim.keymap.set('n', '<leader>cRg', vim.lsp.buf.definition, { buffer = buf, desc = '[C]ode [R]hai [G]oto def' })
+          vim.keymap.set('n', '<leader>cRn', vim.lsp.buf.rename, { buffer = buf, desc = '[C]ode [R]hai Re[n]ame' })
+          vim.keymap.set({ 'n', 'x' }, '<leader>cRa', vim.lsp.buf.code_action, {
+            buffer = buf,
+            desc = '[C]ode [R]hai Code [A]ction',
+          })
 
-          map('<leader>cRr', function()
+          vim.keymap.set('n', '<leader>cRr', function()
             local file = ensure_rhai_file(buf)
             if not file then
               return
             end
             local escaped = vim.fn.shellescape(file)
             run_cli({ 'run', file }, string.format('rhai run %s', escaped))
-          end, '[C]ode [R]hai [R]un')
+          end, { buffer = buf, desc = '[C]ode [R]hai [R]un' })
 
-          map('<leader>cRF', function()
+          vim.keymap.set('n', '<leader>cRF', function()
             local file = ensure_rhai_file(buf)
             if not file then
               return
             end
             local escaped = vim.fn.shellescape(file)
             run_cli({ 'fmt', file }, string.format('rhai fmt %s', escaped))
-          end, '[C]ode [R]hai [F]mt (CLI)')
+          end, { buffer = buf, desc = '[C]ode [R]hai [F]mt (CLI)' })
 
-          map('<leader>cRt', function()
+          vim.keymap.set('n', '<leader>cRt', function()
             if not has_rhai_cli() then
               return
             end
             if not run_overseer('rhai', { 'repl' }) then
               term_run 'rhai repl'
             end
-          end, '[C]ode [R]hai [T]erm REPL')
+          end, { buffer = buf, desc = '[C]ode [R]hai [T]erm REPL' })
         end,
       })
 
