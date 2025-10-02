@@ -1,4 +1,6 @@
 return (function()
+  local rhai_utils = require 'custom.lang.rhai'
+
   -- NIM
   vim.keymap.set('n', '<leader>npr', function()
     local dir_path = vim.fn.expand '%:p:h'
@@ -16,6 +18,46 @@ return (function()
   vim.keymap.set('n', '<leader>ccd', '<cmd>tabnew | term cargo doc --open<cr>', { desc = '[C]ode [C]argo [D]oc open' })
   vim.keymap.set('n', '<leader>ccu', '<cmd>tabnew | term cargo update<cr>', { desc = '[C]ode [C]argo [U]pdate deps' })
   vim.keymap.set('n', '<leader>ccf', '<cmd>tabnew | term cargo fmt<cr>', { desc = '[C]ode [C]argo [F]ormat code' })
+  vim.api.nvim_create_autocmd('FileType', {
+    pattern = 'rhai',
+    callback = function(ev)
+      local buf = ev.buf
+
+      vim.keymap.set('n', '<leader>cRf', function()
+        rhai_utils.format_buffer(buf)
+      end, { buffer = buf, desc = '[C]ode [R]hai [F]ormat buffer' })
+
+      vim.keymap.set('n', '<leader>cRF', function()
+        if not rhai_utils.rhai_executable() then
+          return
+        end
+        local args = { 'fmt' }
+        local root = rhai_utils.get_root(vim.api.nvim_buf_get_name(buf))
+        if not rhai_utils.run_overseer('rhai', args, root) then
+          rhai_utils.term_run('rhai', args, root)
+        end
+      end, { buffer = buf, desc = '[C]ode [R]hai [F]ormat workspace' })
+
+      vim.keymap.set('n', '<leader>cRc', function()
+        if not rhai_utils.rhai_executable() then
+          return
+        end
+        local args = { 'fmt', '--check' }
+        local root = rhai_utils.get_root(vim.api.nvim_buf_get_name(buf))
+        if not rhai_utils.run_overseer('rhai', args, root) then
+          rhai_utils.term_run('rhai', args, root)
+        end
+      end, { buffer = buf, desc = '[C]ode [R]hai [C]heck formatting' })
+
+      vim.keymap.set('n', '<leader>cRh', vim.lsp.buf.hover, { buffer = buf, desc = '[C]ode [R]hai [H]over' })
+      vim.keymap.set('n', '<leader>cRg', vim.lsp.buf.definition, { buffer = buf, desc = '[C]ode [R]hai [G]oto def' })
+      vim.keymap.set('n', '<leader>cRn', vim.lsp.buf.rename, { buffer = buf, desc = '[C]ode [R]hai Re[n]ame' })
+      vim.keymap.set({ 'n', 'x' }, '<leader>cRa', vim.lsp.buf.code_action, {
+        buffer = buf,
+        desc = '[C]ode [R]hai Code [A]ction',
+      })
+    end,
+  })
   -- Rust execution, testing, and linting under <leader>cr
   vim.keymap.set('n', '<leader>cr', '<Nop>', { desc = '[C]ode [R]ust' })
   vim.keymap.set('n', '<leader>crr', '<cmd>tabnew | term cargo run<cr>', { desc = '[C]ode [R]ust [R]un' })

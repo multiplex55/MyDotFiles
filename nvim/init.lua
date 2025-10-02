@@ -172,6 +172,10 @@ vim.filetype.add {
   extension = { koto = 'koto' },
 }
 
+vim.filetype.add {
+  extension = { rhai = 'rhai' },
+}
+
 require('lazy').setup({ {
   import = 'custom.plugins',
 } }, {

@@ -64,6 +64,11 @@ return {
           mode = { 'n' },
         },
         {
+          '<leader>cR',
+          group = '[c]ode [R]hai',
+          mode = { 'n', 'x' },
+        },
+        {
           '<leader>d',
           group = '[d]ocument and dashboard',
         },
