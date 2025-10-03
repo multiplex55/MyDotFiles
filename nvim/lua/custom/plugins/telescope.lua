@@ -147,7 +147,7 @@ return {
         desc = '[S]earch [N]eovim files',
       })
 
-      vim.keymap.set('n', 'leader>sR', builtin.registers, { desc = '[S]earch Yanks / [R]egisters' })
+      vim.keymap.set('n', '<leader>sR', builtin.registers, { desc = '[S]earch Yanks / [R]egisters' })
 
       vim.keymap.set('n', '<leader>sS', builtin.lsp_workspace_symbols, { desc = '[S]earch [S]ymbols in workspace' })
     end,
