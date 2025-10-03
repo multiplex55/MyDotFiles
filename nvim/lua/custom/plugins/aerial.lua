@@ -23,24 +23,27 @@ return {
 
       vim.keymap.set('n', '<leader>sa', function()
         aerial.toggle { focus = true }
-      end, { desc = '[S]ymbols [A]erial toggle' })
+      end, { desc = '[S]earch [A]erial Toggle' })
 
-      vim.keymap.set('n', '<leader>sj', function()
+      vim.keymap.set('n', '<leader>saf', function()
+        aerial.focus()
+      end, { desc = '[S]earch [A]erial Focus' })
+
+      vim.keymap.set('n', '<leader>sao', function()
+        aerial.open { focus = true }
+      end, { desc = '[S]earch [A]erial Open' })
+
+      vim.keymap.set('n', '<leader>sac', function()
+        aerial.close()
+      end, { desc = '[S]earch [A]erial Close' })
+
+      vim.keymap.set('n', '<leader>san', function()
         aerial.next { skip_hidden = true }
-      end, { desc = '[S]ymbols Next' })
+      end, { desc = '[S]earch [A]erial Next' })
 
-      vim.keymap.set('n', '<leader>sk', function()
+      vim.keymap.set('n', '<leader>sap', function()
         aerial.prev { skip_hidden = true }
-      end, { desc = '[S]ymbols Previous' })
-
-      local ok, wk = pcall(require, 'which-key')
-      if ok then
-        wk.add {
-          { '<leader>sa', '[S]ymbols [A]erial toggle', mode = 'n' },
-          { '<leader>sj', '[S]ymbols Next', mode = 'n' },
-          { '<leader>sk', '[S]ymbols Previous', mode = 'n' },
-        }
-      end
+      end, { desc = '[S]earch [A]erial Previous' })
 
       local telescope_ok, telescope = pcall(require, 'telescope')
       if telescope_ok then
