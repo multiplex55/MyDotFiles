@@ -459,6 +459,44 @@ return (function()
     return p
   end
 
+  local function ahk_install_dir(p)
+    p = p or ahk_paths()
+    local exe = p.ahk_exe
+    if not exe or exe == '' then
+      return nil
+    end
+    return exe:match('^(.*)[/\\][^/\\]-$')
+  end
+
+  local function window_spy_path(p)
+    local dir = ahk_install_dir(p)
+    if not dir or dir == '' then
+      return nil
+    end
+    local candidates = {
+      dir .. '\\WindowSpy.ahk',
+      dir .. '\\UX\\WindowSpy.ahk',
+    }
+    for _, path in ipairs(candidates) do
+      if vim.loop.fs_stat(path) then
+        return path
+      end
+    end
+    return nil
+  end
+
+  local function ahk_help_chm(p)
+    local dir = ahk_install_dir(p)
+    if not dir or dir == '' then
+      return nil
+    end
+    local path = dir .. '\\AutoHotkey.chm'
+    if vim.loop.fs_stat(path) then
+      return path
+    end
+    return nil
+  end
+
   -- Small helpers
   local function curfile()
     return vim.fn.expand '%:p'
@@ -470,12 +508,25 @@ return (function()
     return vim.fn.expand '%:t:r'
   end
 
+  -- Base group for which-key friendly descriptions
+  vim.keymap.set('n', '<leader>ch', '<Nop>', { desc = '[C]ode a[h]k' })
+
   -- [car] Run current script (normal)
   vim.keymap.set('n', '<leader>chr', function()
     vim.cmd.write()
     local p = ahk_paths()
     run_build_cmd({ p.ahk_exe, curfile() }, 'AHK: run current')
   end, { desc = '[C]ode a[h]k [R]un current' })
+
+  vim.keymap.set('n', '<leader>ch?', function()
+    local symbol = vim.fn.expand '<cword>'
+    if symbol == nil or symbol == '' then
+      vim.notify('No symbol under cursor to look up', vim.log.levels.WARN)
+      return
+    end
+    local url = ('https://www.autohotkey.com/docs/v2/lib/%s.htm'):format(symbol)
+    run_build_cmd({ 'cmd.exe', '/C', 'start', '""', url }, 'AHK: docs lookup')
+  end, { desc = '[C]ode a[h]k [?] Docs for symbol' })
 
   -- [cae] Run current script with /ErrorStdOut (diagnostics in terminal/Overseer)
   vim.keymap.set('n', '<leader>che', function()
@@ -492,6 +543,27 @@ return (function()
     local ps = ([[Start-Process -Verb RunAs -FilePath "%s" -ArgumentList "%s"]]):format(p.ahk_exe, curfile())
     run_build_cmd({ 'powershell', '-NoProfile', '-Command', ps }, 'AHK: run as admin')
   end, { desc = '[C]ode a[h]k Run as [A]dmin' })
+
+  vim.keymap.set('n', '<leader>chw', function()
+    vim.cmd.write()
+    local p = ahk_paths()
+    local spy = window_spy_path(p)
+    if not spy or spy == '' then
+      vim.notify('Unable to locate WindowSpy.ahk from AutoHotkey installation', vim.log.levels.ERROR)
+      return
+    end
+    run_build_cmd({ p.ahk_exe, spy }, 'AHK: Window Spy')
+  end, { desc = '[C]ode a[h]k [W]indow Spy' })
+
+  vim.keymap.set('n', '<leader>chH', function()
+    local p = ahk_paths()
+    local help_path = ahk_help_chm(p)
+    if not help_path or help_path == '' then
+      vim.notify('Unable to locate AutoHotkey.chm from AutoHotkey installation', vim.log.levels.ERROR)
+      return
+    end
+    run_build_cmd({ 'cmd.exe', '/C', 'start', '""', help_path }, 'AHK: help (CHM)')
+  end, { desc = '[C]ode a[h]k [H]elp (CHM)' })
 
   -- [cac] Compile current script to exe (bin/<name>.exe). Uses icon <name>.ico if present.
   vim.keymap.set('n', '<leader>chc', function()
