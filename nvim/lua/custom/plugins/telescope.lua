@@ -64,6 +64,7 @@ return {
       -- Enable Telescope extensions if they are installed
       pcall(require('telescope').load_extension, 'fzf')
       pcall(require('telescope').load_extension, 'ui-select')
+      pcall(require('telescope').load_extension, 'neoclip')
 
       -- See `:help telescope.builtin`
       local builtin = require 'telescope.builtin'
@@ -150,6 +151,10 @@ return {
       vim.keymap.set('n', '<leader>sR', builtin.registers, { desc = '[S]earch Yanks / [R]egisters' })
 
       vim.keymap.set('n', '<leader>sS', builtin.lsp_workspace_symbols, { desc = '[S]earch [S]ymbols in workspace' })
+
+      vim.keymap.set('n', '<leader>sY', function()
+        require('telescope').extensions.neoclip.neoclip()
+      end, { desc = '[S]earch clipboard histor[Y]' })
     end,
   },
 }
