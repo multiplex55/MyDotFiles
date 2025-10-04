@@ -21,7 +21,6 @@ return {
         'go',
         'nim',
         'zig',
-        'koto_ls',
       },
       -- Autoinstall languages that are not installed
       auto_install = true,
