@@ -40,3 +40,4 @@ luac.out
 *.hex
 
 nvim/clean_branches.bat
+clean_branches.bat
