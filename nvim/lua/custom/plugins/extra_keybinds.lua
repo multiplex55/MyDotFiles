@@ -251,16 +251,20 @@ return (function()
     require('conform').format { async = true, lsp_format = 'fallback' }
   end, { desc = '[F]ormat buffer' })
   -- Window Management
-  -- Move between windows
-  vim.keymap.set('n', '<leader>wh', '<C-w>h', { desc = '[w]indows Left' })
-  vim.keymap.set('n', '<leader>wj', '<C-w>j', { desc = '[w]indows Down' })
-  vim.keymap.set('n', '<leader>wk', '<C-w>k', { desc = '[w]indows Up' })
-  vim.keymap.set('n', '<leader>wl', '<C-w>l', { desc = '[w]indows Right' })
-  -- Resize splits
-  vim.keymap.set('n', '<leader>w<Left>', '<C-w><', { desc = '[w]indows Resize ←' })
-  vim.keymap.set('n', '<leader>w<Right>', '<C-w>>', { desc = '[w]indows Resize →' })
-  vim.keymap.set('n', '<leader>w<Up>', '<C-w>+', { desc = '[w]indows Resize ↑' })
-  vim.keymap.set('n', '<leader>w<Down>', '<C-w>-', { desc = '[w]indows Resize ↓' })
+  local function smart_splits()
+    require('lazy').load { plugins = { 'smart-splits.nvim' } }
+    return require 'smart-splits'
+  end
+
+  local function winshift()
+    require('lazy').load { plugins = { 'winshift.nvim' } }
+    return require 'winshift'
+  end
+
+  -- WinShift integration for advanced rearranging
+  vim.keymap.set('n', '<leader>wm', function()
+    winshift().cmd_winshift()
+  end, { desc = '[w]indows WinShift [m]ove mode (q/Esc to exit)' })
   -- Split window
   vim.keymap.set('n', '<leader>wv', '<cmd>vsplit<cr>', { desc = '[w]indows [V]ertical Split' })
   vim.keymap.set('n', '<leader>wb', '<cmd>split<cr>', { desc = '[w]indows Horizontal Split' })
@@ -277,6 +281,9 @@ return (function()
       vim.api.nvim_set_current_win(picked)
     end
   end, { desc = '[w]indow [p]icker' })
+  vim.keymap.set('n', '<leader>wP', function()
+    winshift().cmd_winshift 'swap'
+  end, { desc = '[w]indows WinShift [P]ick other window' })
   --barbar tab navigatio- Buffer navigation
   vim.keymap.set('n', '<Tab>', '<cmd>BufferNext<cr>', { desc = '[t]ab Next' })
   vim.keymap.set('n', '<S-Tab>', '<cmd>BufferPrevious<cr>', { desc = '[t]ab Previous' })
@@ -580,7 +587,7 @@ return (function()
     if not exe or exe == '' then
       return nil
     end
-    return exe:match('^(.*)[/\\][^/\\]-$')
+    return exe:match '^(.*)[/\\][^/\\]-$'
   end
 
   local function window_spy_path(p)
