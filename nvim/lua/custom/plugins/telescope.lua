@@ -46,7 +46,9 @@ return {
 
       -- [[ Configure Telescope ]]
       -- See `:help telescope` and `:help telescope.setup()`
-      require('telescope').setup {
+      local telescope = require 'telescope'
+
+      telescope.setup {
         -- You can put your default mappings / updates / etc. in here
         --  All the info you're looking for is in `:help telescope.setup()`
         --
@@ -62,9 +64,9 @@ return {
       }
 
       -- Enable Telescope extensions if they are installed
-      pcall(require('telescope').load_extension, 'fzf')
-      pcall(require('telescope').load_extension, 'ui-select')
-      pcall(require('telescope').load_extension, 'neoclip')
+      pcall(telescope.load_extension, 'fzf')
+      pcall(telescope.load_extension, 'ui-select')
+      local neoclip_ok = pcall(telescope.load_extension, 'neoclip')
 
       -- See `:help telescope.builtin`
       local builtin = require 'telescope.builtin'
@@ -152,9 +154,11 @@ return {
 
       vim.keymap.set('n', '<leader>sS', builtin.lsp_workspace_symbols, { desc = '[S]earch [S]ymbols in workspace' })
 
-      vim.keymap.set('n', '<leader>sY', function()
-        require('telescope').extensions.neoclip.neoclip()
-      end, { desc = '[S]earch clipboard histor[Y]' })
+      if neoclip_ok then
+        vim.keymap.set('n', '<leader>sY', function()
+          telescope.extensions.neoclip.neoclip()
+        end, { desc = '[S]earch clipboard histor[Y]' })
+      end
     end,
   },
 }
