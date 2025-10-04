@@ -79,6 +79,60 @@ return (function()
         end
       end, { buffer = buf, desc = '[C]ode [R]hai [C]heck formatting' })
 
+      vim.keymap.set('n', '<leader>cRr', function()
+        if not rhai_utils.rhai_executable() then
+          return
+        end
+        local file = rhai_utils.ensure_rhai_file(buf)
+        if not file then
+          return
+        end
+        vim.cmd.write()
+        local args = { 'run', file }
+        local root = rhai_utils.get_root(file)
+        if not rhai_utils.run_overseer('rhai', args, root) then
+          rhai_utils.term_run('rhai', args, root)
+        end
+      end, { buffer = buf, desc = '[C]ode [R]hai [R]un file' })
+
+      vim.keymap.set('n', '<leader>cRR', function()
+        if not rhai_utils.rhai_executable() then
+          return
+        end
+        local file = rhai_utils.ensure_rhai_file(buf)
+        if not file then
+          return
+        end
+        vim.cmd.write()
+        local root = rhai_utils.get_root(file)
+        vim.ui.input({ prompt = 'Extra rhai args: ' }, function(input)
+          if input == nil then
+            return
+          end
+          local args = { 'run', file }
+          if input ~= '' then
+            local extra = vim.split(input, '%s+', { trimempty = true })
+            if #extra > 0 then
+              vim.list_extend(args, extra)
+            end
+          end
+          if not rhai_utils.run_overseer('rhai', args, root) then
+            rhai_utils.term_run('rhai', args, root)
+          end
+        end)
+      end, { buffer = buf, desc = '[C]ode [R]hai Run with ext[R]a args' })
+
+      vim.keymap.set('n', '<leader>cRt', function()
+        if not rhai_utils.rhai_executable() then
+          return
+        end
+        local file = vim.api.nvim_buf_get_name(buf)
+        local root = rhai_utils.get_root(file)
+        if not rhai_utils.run_overseer('rhai', nil, root) then
+          rhai_utils.term_run('rhai', nil, root)
+        end
+      end, { buffer = buf, desc = '[C]ode [R]hai [T]erminal REPL' })
+
       vim.keymap.set('n', '<leader>cRh', vim.lsp.buf.hover, { buffer = buf, desc = '[C]ode [R]hai [H]over' })
       vim.keymap.set('n', '<leader>cRg', vim.lsp.buf.definition, { buffer = buf, desc = '[C]ode [R]hai [G]oto def' })
       vim.keymap.set('n', '<leader>cRn', vim.lsp.buf.rename, { buffer = buf, desc = '[C]ode [R]hai Re[n]ame' })
@@ -126,6 +180,9 @@ return (function()
   vim.keymap.set('n', '<leader>ctl', function()
     require('neotest').run.run_last()
   end, { desc = '[C]ode [T]est Run [L]ast' })
+  vim.keymap.set('n', '<leader>ctD', function()
+    require('neotest').run.run_last { strategy = 'dap' }
+  end, { desc = '[C]ode [T]est Run last ([D]AP)' })
   vim.keymap.set('n', '<leader>ctS', function()
     require('neotest').run.stop()
   end, { desc = '[C]ode [T]est [S]top' })
@@ -135,6 +192,9 @@ return (function()
   vim.keymap.set('n', '<leader>cto', function()
     require('neotest').output.open { enter = true }
   end, { desc = '[C]ode [T]est [O]utput float' })
+  vim.keymap.set('n', '<leader>ctL', function()
+    require('neotest').output.open { enter = false, last_run = true }
+  end, { desc = '[C]ode [T]est Last output (no focus)' })
   vim.keymap.set('n', '<leader>ctp', function()
     require('neotest').output_panel.toggle()
   end, { desc = '[C]ode [T]est [P]anel toggle' })
@@ -156,6 +216,22 @@ return (function()
   vim.keymap.set('n', '<leader>crm', function()
     vim.cmd.RustLsp { 'expandMacro' }
   end, { desc = '[C]ode [R]ust expand [M]acro' })
+  vim.keymap.set('n', '<leader>cre', function()
+    vim.cmd.RustLsp { 'explainError' }
+  end, { desc = '[C]ode [R]ust [E]xplain error' })
+  vim.keymap.set('n', '<leader>crO', function()
+    vim.cmd.RustLsp { 'openDocs' }
+  end, { desc = '[C]ode [R]ust [O]pen docs' })
+  vim.keymap.set('n', '<leader>crs', function()
+    vim.cmd.RustLsp { 'syntaxTree' }
+  end, { desc = '[C]ode [R]ust [S]yntax tree' })
+  vim.keymap.set('n', '<leader>crG', function()
+    if vim.fn.executable 'dot' ~= 1 then
+      vim.notify('`dot` executable (Graphviz) is required for the crate graph', vim.log.levels.WARN)
+      return
+    end
+    vim.cmd.RustLsp { 'viewCrateGraph', backend = 'graphviz', full = true }
+  end, { desc = '[C]ode [R]ust Crate [G]raph (Graphviz)' })
   -- Increase font size
   vim.keymap.set('n', '<C-=>', function()
     local font = vim.o.guifont
@@ -547,6 +623,45 @@ return (function()
     return vim.fn.expand '%:t:r'
   end
 
+  local function parse_ahk_args(input)
+    if not input or input == '' then
+      return {}
+    end
+    local args, current = {}, {}
+    local in_single, in_double = false, false
+    local i = 1
+    while i <= #input do
+      local c = input:sub(i, i)
+      if c == '"' and not in_single then
+        in_double = not in_double
+      elseif c == "'" and not in_double then
+        in_single = not in_single
+      elseif c == '\\' and not in_single then
+        i = i + 1
+        if i > #input then
+          table.insert(current, '\\')
+          break
+        end
+        table.insert(current, input:sub(i, i))
+      elseif c:match '%s' and not in_single and not in_double then
+        if #current > 0 then
+          table.insert(args, table.concat(current))
+          current = {}
+        end
+      else
+        table.insert(current, c)
+      end
+      i = i + 1
+    end
+    if in_single or in_double then
+      return nil, 'Unbalanced quotes in arguments'
+    end
+    if #current > 0 then
+      table.insert(args, table.concat(current))
+    end
+    return args
+  end
+
   -- Base group for which-key friendly descriptions
   vim.keymap.set('n', '<leader>ch', '<Nop>', { desc = '[C]ode a[h]k' })
 
@@ -556,6 +671,39 @@ return (function()
     local p = ahk_paths()
     run_build_cmd({ p.ahk_exe, curfile() }, 'AHK: run current')
   end, { desc = '[C]ode a[h]k [R]un current' })
+
+  vim.keymap.set('n', '<leader>chR', function()
+    vim.cmd.write()
+    local p = ahk_paths()
+    if not p.ahk_exe or p.ahk_exe == '' then
+      vim.notify('AutoHotkey executable not configured', vim.log.levels.WARN)
+      return
+    end
+    if vim.fn.executable(p.ahk_exe) ~= 1 and not vim.loop.fs_stat(p.ahk_exe) then
+      vim.notify('AutoHotkey executable not found: ' .. p.ahk_exe, vim.log.levels.WARN)
+      return
+    end
+    local script = curfile()
+    if script == '' then
+      vim.notify('No file associated with this buffer', vim.log.levels.WARN)
+      return
+    end
+    vim.ui.input({ prompt = 'Script arguments: ' }, function(input)
+      if input == nil then
+        return
+      end
+      local extra_args, err = parse_ahk_args(input)
+      if err then
+        vim.notify(err, vim.log.levels.WARN)
+        return
+      end
+      local cmd = { p.ahk_exe, script }
+      if extra_args and #extra_args > 0 then
+        vim.list_extend(cmd, extra_args)
+      end
+      run_build_cmd(cmd, 'AHK: run with args')
+    end)
+  end, { desc = '[C]ode a[h]k Run with a[R]gs' })
 
   vim.keymap.set('n', '<leader>ch?', function()
     local symbol = vim.fn.expand '<cword>'
