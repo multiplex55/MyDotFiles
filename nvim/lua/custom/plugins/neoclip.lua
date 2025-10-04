@@ -33,10 +33,11 @@ return {
 
       if not sqlite_available then
         vim.notify(
-          'nvim-neoclip.lua: persistent history disabled - ' .. tostring(sqlite_error),
+          'nvim-neoclip.lua disabled: sqlite unavailable - ' .. tostring(sqlite_error),
           vim.log.levels.WARN,
           { title = 'Neoclip' }
         )
+        return
       end
 
       local ok, neoclip = pcall(require, 'neoclip')
@@ -51,8 +52,8 @@ return {
 
       local setup_ok, setup_err = pcall(neoclip.setup, {
         history = 1000,
-        enable_persistent_history = sqlite_available,
-        continuous_sync = sqlite_available,
+        enable_persistent_history = true,
+        continuous_sync = true,
         enable_macro_history = true,
         db_path = vim.fn.stdpath 'data' .. '/databases/neoclip.sqlite3',
         filter = nil,
