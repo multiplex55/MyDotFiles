@@ -25,6 +25,20 @@ A starting point for Neovim that is:
 | `<leader>ccU` | Upgrade the crate at the cursor directly to the newest release on crates.io, rewriting the dependency specification to match the latest published version. |
 | `<leader>ccu` | Update the crate at the cursor only within the current semver requirement, keeping compatibility while bumping to the most recent allowed version. |
 
+### Navigation
+
+| Shortcut | Action |
+| --- | --- |
+| `s` / `S` | Trigger `flash.nvim` jump navigation or the Treesitter-powered variant without overriding native `f` / `t` motions. |
+| `<leader>hf` | Start a `flash.nvim` jump while staying alongside the existing Hop leader mappings. |
+| `<leader>hF` | Launch the Treesitter-based Flash search from the hop leader group. |
+
+### Clipboard
+
+| Shortcut | Action |
+| --- | --- |
+| `<leader>sY` | Open the Telescope-powered Neoclip picker to browse clipboard history. |
+
 ## Installation
 
 ### Install Neovim
