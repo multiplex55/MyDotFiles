@@ -9,8 +9,41 @@ return {
         module = 'sqlite',
       },
     },
+    cond = function()
+      local has_sqlite, sqlite = pcall(require, 'sqlite')
+      if not has_sqlite then
+        vim.notify(
+          'nvim-neoclip.lua disabled: sqlite dependency is not available',
+          vim.log.levels.WARN,
+          { title = 'Neoclip' }
+        )
+        return false
+      end
+
+      -- Ensure sqlite module is fully initialised before continuing.
+      if type(sqlite) ~= 'table' then
+        vim.notify(
+          'nvim-neoclip.lua disabled: sqlite dependency did not return a module table',
+          vim.log.levels.WARN,
+          { title = 'Neoclip' }
+        )
+        return false
+      end
+
+      return true
+    end,
     config = function()
-      require('neoclip').setup {
+      local ok, neoclip = pcall(require, 'neoclip')
+      if not ok then
+        vim.notify(
+          'nvim-neoclip.lua disabled: plugin is not installed or failed to load',
+          vim.log.levels.WARN,
+          { title = 'Neoclip' }
+        )
+        return
+      end
+
+      neoclip.setup {
         history = 1000,
         enable_persistent_history = true,
         continuous_sync = true,
