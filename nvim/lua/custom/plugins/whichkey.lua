@@ -97,6 +97,10 @@ return {
           group = '[t]abs and Toggle',
         },
         {
+          '<leader>x',
+          group = '[x] Trouble & quickfix',
+        },
+        {
           '<leader>U',
           group = '[U]i',
         },
