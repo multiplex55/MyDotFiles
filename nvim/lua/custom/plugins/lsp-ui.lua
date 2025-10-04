@@ -20,7 +20,7 @@ return {
           jump_num_shortcut = true,
         },
         symbol_in_winbar = {
-          enable = true,
+          enable = false,
           separator = '  ',
           show_file = true,
           folder_level = 2,
