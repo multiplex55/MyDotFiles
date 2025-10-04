@@ -21,7 +21,7 @@ return {
       local aerial = require 'aerial'
       aerial.setup(opts)
 
-      vim.keymap.set('n', '<leader>sa', function()
+      vim.keymap.set('n', '<leader>sat', function()
         aerial.toggle { focus = true }
       end, { desc = '[S]earch [A]erial Toggle' })
 
