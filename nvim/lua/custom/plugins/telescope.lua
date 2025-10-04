@@ -113,7 +113,7 @@ return {
       })
       -- Diagnostic keymaps
       vim.keymap.set('n', '<leader>sq', vim.diagnostic.setqflist, {
-        desc = '[S]earch [Q]uickfix Diagnostic list',
+        desc = '[S]earch [Q]uickfix diagnostics (Trouble/Bqf)',
       })
 
       -- Slightly advanced example of overriding default behavior and theme
