@@ -251,16 +251,52 @@ return (function()
     require('conform').format { async = true, lsp_format = 'fallback' }
   end, { desc = '[F]ormat buffer' })
   -- Window Management
-  -- Move between windows
-  vim.keymap.set('n', '<leader>wh', '<C-w>h', { desc = '[w]indows Left' })
-  vim.keymap.set('n', '<leader>wj', '<C-w>j', { desc = '[w]indows Down' })
-  vim.keymap.set('n', '<leader>wk', '<C-w>k', { desc = '[w]indows Up' })
-  vim.keymap.set('n', '<leader>wl', '<C-w>l', { desc = '[w]indows Right' })
-  -- Resize splits
-  vim.keymap.set('n', '<leader>w<Left>', '<C-w><', { desc = '[w]indows Resize ←' })
-  vim.keymap.set('n', '<leader>w<Right>', '<C-w>>', { desc = '[w]indows Resize →' })
-  vim.keymap.set('n', '<leader>w<Up>', '<C-w>+', { desc = '[w]indows Resize ↑' })
-  vim.keymap.set('n', '<leader>w<Down>', '<C-w>-', { desc = '[w]indows Resize ↓' })
+  local function smart_split_action(method)
+    return function()
+      local ok, smart_splits = pcall(require, 'smart-splits')
+      if not ok then
+        vim.notify('smart-splits.nvim is not available', vim.log.levels.WARN)
+        return
+      end
+      smart_splits[method]()
+    end
+  end
+
+  -- Smart-splits movement keeps tmux-aware navigation under familiar bindings.
+  vim.keymap.set('n', '<leader>wh', smart_split_action 'move_cursor_left', { desc = '[w]indows Focus ← (smart)' })
+  vim.keymap.set('n', '<leader>wj', smart_split_action 'move_cursor_down', { desc = '[w]indows Focus ↓ (smart)' })
+  vim.keymap.set('n', '<leader>wk', smart_split_action 'move_cursor_up', { desc = '[w]indows Focus ↑ (smart)' })
+  vim.keymap.set('n', '<leader>wl', smart_split_action 'move_cursor_right', { desc = '[w]indows Focus → (smart)' })
+
+  -- Shifted HJKL resize the focused split using smart-splits helpers.
+  vim.keymap.set('n', '<leader>wH', smart_split_action 'resize_left', { desc = '[w]indows Resize ← (smart)' })
+  vim.keymap.set('n', '<leader>wJ', smart_split_action 'resize_down', { desc = '[w]indows Resize ↓ (smart)' })
+  vim.keymap.set('n', '<leader>wK', smart_split_action 'resize_up', { desc = '[w]indows Resize ↑ (smart)' })
+  vim.keymap.set('n', '<leader>wL', smart_split_action 'resize_right', { desc = '[w]indows Resize → (smart)' })
+
+  -- WinShift-powered interactive layout adjustments.
+  vim.keymap.set('n', '<leader>wm', function()
+    local ok, winshift = pcall(require, 'winshift')
+    if not ok then
+      vim.notify('winshift.nvim is not available', vim.log.levels.WARN)
+      return
+    end
+    winshift.cmd_winshift()
+  end, { desc = '[w]indows [m]ove layout (WinShift)' })
+  vim.keymap.set('n', '<leader>wS', function()
+    local ok, winshift = pcall(require, 'winshift')
+    if not ok then
+      vim.notify('winshift.nvim is not available', vim.log.levels.WARN)
+      return
+    end
+    winshift.cmd_winshift 'swap'
+  end, { desc = '[w]indows [S]wap layout (WinShift)' })
+
+  -- Arrow keys retain the classic <C-w> fallbacks for muscle memory.
+  vim.keymap.set('n', '<leader>w<Left>', '<C-w><', { desc = '[w]indows Resize ← (fallback)' })
+  vim.keymap.set('n', '<leader>w<Right>', '<C-w>>', { desc = '[w]indows Resize → (fallback)' })
+  vim.keymap.set('n', '<leader>w<Up>', '<C-w>+', { desc = '[w]indows Resize ↑ (fallback)' })
+  vim.keymap.set('n', '<leader>w<Down>', '<C-w>-', { desc = '[w]indows Resize ↓ (fallback)' })
   -- Split window
   vim.keymap.set('n', '<leader>wv', '<cmd>vsplit<cr>', { desc = '[w]indows [V]ertical Split' })
   vim.keymap.set('n', '<leader>wb', '<cmd>split<cr>', { desc = '[w]indows Horizontal Split' })
