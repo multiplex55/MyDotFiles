@@ -482,7 +482,10 @@ return (function()
   vim.keymap.set('n', '<leader>os', '<cmd>OverseerSaveBundle<cr>', { desc = '[O]verseer [S]ave Task Bundle' })
   vim.keymap.set('n', '<leader>ol', '<cmd>OverseerLoadBundle<cr>', { desc = '[O]verseer [L]oad Task Bundle' })
   vim.keymap.set('n', '<leader>od', '<cmd>OverseerDeleteBundle<cr>', { desc = '[O]verseer [D]elete Task Bundle' })
-  vim.keymap.set('n', '<leader>oq', '<cmd>OverseerQuickAction<cr>', { desc = '[O]verseer [Q]uick Action' })
+  vim.keymap.set('n', '<leader>oq', function()
+    require('lazy').load { plugins = { 'overseer.nvim' } }
+    require('overseer').open { enter = true, direction = 'bottom' }
+  end, { desc = '[O]verseer [Q]uickfix focus list' })
   vim.keymap.set('n', '<leader>ob', '<cmd>OverseerBuild<cr>', { desc = '[O]verseer [B]uild Tasks' })
   --Telescope file browser
   vim.keymap.set('n', '<space>sb', ':Telescope file_browser path=%":p:h select_buffer=true<CR>', { desc = '[S]earch file [B]rowser' })
