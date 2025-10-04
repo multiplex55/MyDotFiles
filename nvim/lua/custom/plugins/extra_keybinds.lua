@@ -1,6 +1,36 @@
 return (function()
   local rhai_utils = require 'custom.lang.rhai'
 
+  -- Trouble & quickfix bindings
+  local function toggle_trouble(mode)
+    require('lazy').load { plugins = { 'trouble.nvim' } }
+    require('trouble').toggle(mode)
+  end
+
+  vim.keymap.set('n', '<leader>xx', function()
+    toggle_trouble 'buffer_diagnostics'
+  end, { desc = '[x] Trouble buffer diagnostics' })
+
+  vim.keymap.set('n', '<leader>xw', function()
+    toggle_trouble 'diagnostics'
+  end, { desc = '[x] Trouble workspace diagnostics' })
+
+  vim.keymap.set('n', '<leader>xr', function()
+    toggle_trouble 'lsp_references'
+  end, { desc = '[x] Trouble LSP references' })
+
+  vim.keymap.set('n', '<leader>xt', function()
+    toggle_trouble 'todo'
+  end, { desc = '[x] Trouble TODOs' })
+
+  vim.keymap.set('n', '<leader>xl', function()
+    toggle_trouble 'loclist'
+  end, { desc = '[x] Trouble location list' })
+
+  vim.keymap.set('n', '<leader>xq', function()
+    toggle_trouble 'quickfix'
+  end, { desc = '[x] Trouble quickfix list' })
+
   -- NIM
   vim.keymap.set('n', '<leader>npr', function()
     local dir_path = vim.fn.expand '%:p:h'

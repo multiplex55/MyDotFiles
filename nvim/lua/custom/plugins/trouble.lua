@@ -40,37 +40,6 @@ return {
       local trouble = require 'trouble'
 
       trouble.setup(opts)
-
-      vim.keymap.set('n', '<leader>xx', function()
-        trouble.toggle 'buffer_diagnostics'
-      end, { desc = '[x] Trouble buffer diagnostics' })
-
-      vim.keymap.set('n', '<leader>xw', function()
-        trouble.toggle 'diagnostics'
-      end, { desc = '[x] Trouble workspace diagnostics' })
-
-      vim.keymap.set('n', '<leader>xr', function()
-        trouble.toggle 'lsp_references'
-      end, { desc = '[x] Trouble LSP references' })
-
-      vim.keymap.set('n', '<leader>xt', function()
-        trouble.toggle 'todo'
-      end, { desc = '[x] Trouble TODOs' })
-
-      vim.keymap.set('n', '<leader>xl', function()
-        trouble.toggle 'loclist'
-      end, { desc = '[x] Trouble location list' })
-
-      vim.keymap.set('n', '<leader>xq', function()
-        trouble.toggle 'quickfix'
-      end, { desc = '[x] Trouble quickfix list' })
-
-      local ok, wk = pcall(require, 'which-key')
-      if ok then
-        wk.add {
-          { '<leader>x', group = '[x] Trouble & lists' },
-        }
-      end
     end,
   },
   {
