@@ -9,9 +9,6 @@ return {
       },
     },
     config = function()
-      local mason_registry = require 'mason-registry'
-      -- local codelldb = mason_registry.get_package 'codelldb'
-
       -- Use environment variable to get install path
       local install_path = vim.fn.expand '$MASON' .. '\\packages\\codelldb'
       local extension_path = install_path .. '\\extension\\'
@@ -19,14 +16,14 @@ return {
       local liblldb_path = extension_path .. 'lldb\\bin\\liblldb.dll'
       local cfg = require 'rustaceanvim.config'
 
-      vim.g.rustaceanvim = {
+      vim.g.rustaceanvim = vim.tbl_deep_extend('force', vim.g.rustaceanvim or {}, {
         dap = {
           adapter = cfg.get_codelldb_adapter(codelldb_path, liblldb_path),
         },
-      }
+      })
 
       -- Example: minimal rustaceanvim settings mirroring the “lighter” RA config
-      vim.g.rustaceanvim = {
+      vim.g.rustaceanvim = vim.tbl_deep_extend('force', vim.g.rustaceanvim or {}, {
         server = {
           settings = {
             ['rust-analyzer'] = {
@@ -38,7 +35,7 @@ return {
             },
           },
         },
-      }
+      })
     end,
   },
 }
