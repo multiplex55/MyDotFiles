@@ -251,16 +251,57 @@ return (function()
     require('conform').format { async = true, lsp_format = 'fallback' }
   end, { desc = '[F]ormat buffer' })
   -- Window Management
-  -- Move between windows
-  vim.keymap.set('n', '<leader>wh', '<C-w>h', { desc = '[w]indows Left' })
-  vim.keymap.set('n', '<leader>wj', '<C-w>j', { desc = '[w]indows Down' })
-  vim.keymap.set('n', '<leader>wk', '<C-w>k', { desc = '[w]indows Up' })
-  vim.keymap.set('n', '<leader>wl', '<C-w>l', { desc = '[w]indows Right' })
-  -- Resize splits
-  vim.keymap.set('n', '<leader>w<Left>', '<C-w><', { desc = '[w]indows Resize ←' })
-  vim.keymap.set('n', '<leader>w<Right>', '<C-w>>', { desc = '[w]indows Resize →' })
-  vim.keymap.set('n', '<leader>w<Up>', '<C-w>+', { desc = '[w]indows Resize ↑' })
-  vim.keymap.set('n', '<leader>w<Down>', '<C-w>-', { desc = '[w]indows Resize ↓' })
+  local function smart_splits()
+    require('lazy').load { plugins = { 'smart-splits.nvim' } }
+    return require 'smart-splits'
+  end
+
+  local function winshift_cmd(subcommand)
+    require('lazy').load { plugins = { 'winshift.nvim' } }
+    if subcommand then
+      vim.cmd('WinShift ' .. subcommand)
+    else
+      vim.cmd.WinShift()
+    end
+  end
+
+  -- Move between windows using smart-splits (respects equal dimensions & optional tmux panes)
+  vim.keymap.set('n', '<leader>wh', function()
+    smart_splits().move_cursor_left()
+  end, { desc = '[w]indows Move ← (smart-splits)' })
+  vim.keymap.set('n', '<leader>wj', function()
+    smart_splits().move_cursor_down()
+  end, { desc = '[w]indows Move ↓ (smart-splits)' })
+  vim.keymap.set('n', '<leader>wk', function()
+    smart_splits().move_cursor_up()
+  end, { desc = '[w]indows Move ↑ (smart-splits)' })
+  vim.keymap.set('n', '<leader>wl', function()
+    smart_splits().move_cursor_right()
+  end, { desc = '[w]indows Move → (smart-splits)' })
+  -- Resize splits with smart-splits helpers while retaining <leader>w<Arrow> muscle-memory fallbacks
+  vim.keymap.set('n', '<leader>wH', function()
+    smart_splits().resize_left()
+  end, { desc = '[w]indows Resize ← (smart-splits)' })
+  vim.keymap.set('n', '<leader>wJ', function()
+    smart_splits().resize_down()
+  end, { desc = '[w]indows Resize ↓ (smart-splits)' })
+  vim.keymap.set('n', '<leader>wK', function()
+    smart_splits().resize_up()
+  end, { desc = '[w]indows Resize ↑ (smart-splits)' })
+  vim.keymap.set('n', '<leader>wL', function()
+    smart_splits().resize_right()
+  end, { desc = '[w]indows Resize → (smart-splits)' })
+  vim.keymap.set('n', '<leader>w<Left>', '<C-w><', { desc = '[w]indows Resize ← (fallback)' })
+  vim.keymap.set('n', '<leader>w<Right>', '<C-w>>', { desc = '[w]indows Resize → (fallback)' })
+  vim.keymap.set('n', '<leader>w<Up>', '<C-w>+', { desc = '[w]indows Resize ↑ (fallback)' })
+  vim.keymap.set('n', '<leader>w<Down>', '<C-w>-', { desc = '[w]indows Resize ↓ (fallback)' })
+  -- WinShift interactive layout tools
+  vim.keymap.set('n', '<leader>wm', function()
+    winshift_cmd()
+  end, { desc = '[w]indows WinShift [m]ove mode' })
+  vim.keymap.set('n', '<leader>wS', function()
+    winshift_cmd 'swap'
+  end, { desc = '[w]indows WinShift [S]wap mode' })
   -- Split window
   vim.keymap.set('n', '<leader>wv', '<cmd>vsplit<cr>', { desc = '[w]indows [V]ertical Split' })
   vim.keymap.set('n', '<leader>wb', '<cmd>split<cr>', { desc = '[w]indows Horizontal Split' })
