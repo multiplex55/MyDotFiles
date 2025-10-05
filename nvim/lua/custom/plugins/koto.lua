@@ -72,8 +72,28 @@ return {
         pattern = 'koto',
         callback = function(ev)
           local buf = ev.buf
-          local ok, wk = pcall(require, 'which-key')
-          if ok then
+          local function get_which_key()
+            local ok, wk = pcall(require, 'which-key')
+            if ok then
+              return wk
+            end
+
+            local lazy_ok, lazy = pcall(require, 'lazy')
+            if not lazy_ok then
+              return nil
+            end
+
+            lazy.load { plugins = { 'which-key.nvim' } }
+            local loaded, which_key = pcall(require, 'which-key')
+            if loaded then
+              return which_key
+            end
+
+            return nil
+          end
+
+          local wk = get_which_key()
+          if wk then
             wk.add {
               { '<leader>ck', group = '[C]ode [K]oto', mode = 'n', buffer = buf },
             }

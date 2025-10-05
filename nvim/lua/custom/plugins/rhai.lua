@@ -62,8 +62,29 @@ return {
           local fname = vim.api.nvim_buf_get_name(buf)
           local root = rhai_utils.get_root(fname)
 
-          pcall(function()
-            require('which-key').add({
+          local function get_which_key()
+            local ok, wk = pcall(require, 'which-key')
+            if ok then
+              return wk
+            end
+
+            local lazy_ok, lazy = pcall(require, 'lazy')
+            if not lazy_ok then
+              return nil
+            end
+
+            lazy.load { plugins = { 'which-key.nvim' } }
+            local loaded, which_key = pcall(require, 'which-key')
+            if loaded then
+              return which_key
+            end
+
+            return nil
+          end
+
+          local wk = get_which_key()
+          if wk then
+            wk.add({
               {
                 '<leader>cR',
                 group = '[C]ode [R]hai',
@@ -71,7 +92,7 @@ return {
                 buffer = buf,
               },
             })
-          end)
+          end
 
           local function map(lhs, rhs, desc, mode)
             local map_mode = mode or 'n'

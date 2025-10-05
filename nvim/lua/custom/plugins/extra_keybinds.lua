@@ -8,9 +8,29 @@ function M.setup()
   end
   did_setup = true
 
-  local function register_buffer_groups(buf, spec)
+  local function load_which_key()
     local ok, wk = pcall(require, 'which-key')
-    if not ok then
+    if ok then
+      return wk
+    end
+
+    local lazy_ok, lazy = pcall(require, 'lazy')
+    if not lazy_ok then
+      return nil
+    end
+
+    lazy.load { plugins = { 'which-key.nvim' } }
+    local loaded, which_key = pcall(require, 'which-key')
+    if loaded then
+      return which_key
+    end
+
+    return nil
+  end
+
+  local function register_buffer_groups(buf, spec)
+    local wk = load_which_key()
+    if not wk then
       return
     end
     local with_buffer = {}
