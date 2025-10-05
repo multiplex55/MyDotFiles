@@ -14,10 +14,11 @@ return {
 
       -- Add/delete/replace surroundings (brackets, quotes, etc.)
       --
-      -- - saiw) - [S]urround [A]dd [I]nner [W]ord [)]Paren
-      -- - sd'   - [S]urround [D]elete [']quotes
-      -- - sr)'  - [S]urround [R]eplace [)] [']
-      require('mini.surround').setup()
+      -- This setup is intentionally disabled because `nvim-surround`
+      -- provides the active surround mappings. Keeping this line
+      -- commented avoids duplicate mappings while retaining the
+      -- reference for future use if desired.
+      -- require('mini.surround').setup()
 
       -- Simple and easy statusline.
       --  You could remove this setup call if you don't like it,
