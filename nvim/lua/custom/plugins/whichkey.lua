@@ -62,11 +62,18 @@ return {
           '<leader>cr',
           group = '[c]ode [r]ust',
           mode = { 'n' },
+          cond = function()
+            local ft = vim.bo.filetype
+            return ft == 'rust' or ft == 'toml'
+          end,
         },
         {
           '<leader>cR',
           group = '[c]ode [R]hai',
           mode = { 'n', 'x' },
+          cond = function()
+            return vim.bo.filetype == 'rhai'
+          end,
         },
         {
           '<leader>d',

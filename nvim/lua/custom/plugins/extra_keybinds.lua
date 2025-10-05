@@ -10,6 +10,20 @@ function M.setup()
 
   local rhai_utils = require 'custom.lang.rhai'
 
+  local function register_buffer_groups(buf, spec)
+    local ok, wk = pcall(require, 'which-key')
+    if not ok then
+      return
+    end
+    local with_buffer = {}
+    for _, entry in ipairs(spec) do
+      local copy = vim.tbl_extend('force', {}, entry)
+      copy.buffer = buf
+      table.insert(with_buffer, copy)
+    end
+    wk.add(with_buffer)
+  end
+
 
   -- Trouble & quickfix bindings
   local function toggle_trouble(mode)
@@ -41,23 +55,93 @@ function M.setup()
     toggle_trouble 'quickfix'
   end, { desc = '[x] Trouble quickfix list' })
 
-  -- NIM
-  vim.keymap.set('n', '<leader>npr', function()
-    local dir_path = vim.fn.expand '%:p:h'
-    local filename_no_ext = vim.fn.expand '%:t:r'
-    local full_path_with_ext = vim.fn.expand '%:p'
+  vim.api.nvim_create_autocmd('FileType', {
+    pattern = 'nim',
+    callback = function(ev)
+      local buf = ev.buf
+      register_buffer_groups(buf, {
+        { '<leader>n', group = '[N]im', mode = 'n' },
+      })
 
-    local cmd = string.format(':tabnew | term nim cpp -d:release -r --out:"%s\\bin\\%s" "%s"', dir_path, filename_no_ext, full_path_with_ext)
-    vim.cmd(cmd)
-  end, {
-    desc = '[n]im c[p]p [r]un release',
+      vim.keymap.set('n', '<leader>npr', function()
+        local dir_path = vim.fn.expand '%:p:h'
+        local filename_no_ext = vim.fn.expand '%:t:r'
+        local full_path_with_ext = vim.fn.expand '%:p'
+
+        local cmd = string.format(':tabnew | term nim cpp -d:release -r --out:"%s\\bin\\%s" "%s"', dir_path, filename_no_ext, full_path_with_ext)
+        vim.cmd(cmd)
+      end, { buffer = buf, desc = '[n]im c[p]p [r]un release' })
+    end,
   })
-  -- Rust-focused cargo utilities under <leader>cc
-  vim.keymap.set('n', '<leader>cc', '<Nop>', { desc = '[C]ode [C]argo' })
-  vim.keymap.set('n', '<leader>ccc', '<cmd>tabnew | term cargo clean<cr>', { desc = '[C]ode [C]argo [C]lean' })
-  vim.keymap.set('n', '<leader>ccd', '<cmd>tabnew | term cargo doc --open<cr>', { desc = '[C]ode [C]argo [D]oc open' })
-  vim.keymap.set('n', '<leader>ccu', '<cmd>tabnew | term cargo update<cr>', { desc = '[C]ode [C]argo [U]pdate deps' })
-  vim.keymap.set('n', '<leader>ccf', '<cmd>tabnew | term cargo fmt<cr>', { desc = '[C]ode [C]argo [F]ormat code' })
+
+  vim.api.nvim_create_autocmd('FileType', {
+    pattern = { 'rust', 'toml' },
+    callback = function(ev)
+      local buf = ev.buf
+      register_buffer_groups(buf, {
+        { '<leader>cc', group = '[C]ode [C]argo', mode = 'n' },
+        { '<leader>cr', group = '[C]ode [R]ust', mode = 'n' },
+      })
+
+      local function map(lhs, rhs, desc)
+        vim.keymap.set('n', lhs, rhs, { buffer = buf, desc = desc })
+      end
+
+      map('<leader>cc', '<Nop>', '[C]ode [C]argo')
+      map('<leader>ccc', '<cmd>tabnew | term cargo clean<cr>', '[C]ode [C]argo [C]lean')
+      map('<leader>ccd', '<cmd>tabnew | term cargo doc --open<cr>', '[C]ode [C]argo [D]oc open')
+      if not (vim.bo[buf].filetype == 'toml' and vim.api.nvim_buf_get_name(buf):match 'Cargo%.toml$') then
+        map('<leader>ccu', '<cmd>tabnew | term cargo update<cr>', '[C]ode [C]argo [U]pdate deps')
+      end
+      map('<leader>ccf', '<cmd>tabnew | term cargo fmt<cr>', '[C]ode [C]argo [F]ormat code')
+
+      map('<leader>cr', '<Nop>', '[C]ode [R]ust')
+      map('<leader>crr', '<cmd>tabnew | term cargo run<cr>', '[C]ode [R]ust [R]un')
+      map('<leader>crR', '<cmd>tabnew | term cargo run --release<cr>', '[C]ode [R]ust Run --[R]elease')
+      map('<leader>crb', '<cmd>tabnew | term cargo build<cr>', '[C]ode [R]ust [B]uild')
+      map('<leader>crB', '<cmd>tabnew | term cargo build --release<cr>', '[C]ode [R]ust Build --[R]elease')
+      map('<leader>crT', '<cmd>tabnew | term cargo test<cr>', '[C]ode [R]ust [T]est suite')
+      map('<leader>crt', '<cmd>tabnew | term cargo nextest run --no-capture --test-threads=1<cr>', '[C]ode [R]ust [T]est')
+      map('<leader>crc', '<cmd>tabnew | term cargo check<cr>', '[C]ode [R]ust [C]heck')
+      map('<leader>crl', '<cmd>tabnew | term cargo clippy<cr>', '[C]ode [R]ust C[L]ippy lint')
+      map('<leader>crd', function()
+        vim.cmd.RustDocstring()
+      end, '[C]ode [R]ust [D]ocstring current item')
+      map('<leader>crD', function()
+        vim.cmd.RustDocstringAllKinds()
+      end, '[C]ode [R]ust [D]ocstring all kinds')
+
+      map('<leader>cru', function()
+        vim.cmd.RustLsp { 'runnables' }
+      end, '[C]ode [R]ust R[U]nnables')
+      map('<leader>crg', function()
+        vim.cmd.RustLsp { 'debuggables' }
+      end, '[C]ode [R]ust debu[g]gables')
+      map('<leader>crp', function()
+        vim.cmd.RustLsp { 'parentModule' }
+      end, '[C]ode [R]ust [P]arent module')
+      map('<leader>crm', function()
+        vim.cmd.RustLsp { 'expandMacro' }
+      end, '[C]ode [R]ust expand [M]acro')
+      map('<leader>cre', function()
+        vim.cmd.RustLsp { 'explainError' }
+      end, '[C]ode [R]ust [E]xplain error')
+      map('<leader>crO', function()
+        vim.cmd.RustLsp { 'openDocs' }
+      end, '[C]ode [R]ust [O]pen docs')
+      map('<leader>crs', function()
+        vim.cmd.RustLsp { 'syntaxTree' }
+      end, '[C]ode [R]ust [S]yntax tree')
+      map('<leader>crG', function()
+        if vim.fn.executable 'dot' ~= 1 then
+          vim.notify('`dot` executable (Graphviz) is required for the crate graph', vim.log.levels.WARN)
+          return
+        end
+        vim.cmd.RustLsp { 'viewCrateGraph', backend = 'graphviz', full = true }
+      end, '[C]ode [R]ust Crate [G]raph (Graphviz)')
+    end,
+  })
+
   vim.api.nvim_create_autocmd('FileType', {
     pattern = 'rhai',
     callback = function(ev)
@@ -152,22 +236,6 @@ function M.setup()
       })
     end,
   })
-  -- Rust execution, testing, and linting under <leader>cr
-  vim.keymap.set('n', '<leader>cr', '<Nop>', { desc = '[C]ode [R]ust' })
-  vim.keymap.set('n', '<leader>crr', '<cmd>tabnew | term cargo run<cr>', { desc = '[C]ode [R]ust [R]un' })
-  vim.keymap.set('n', '<leader>crR', '<cmd>tabnew | term cargo run --release<cr>', { desc = '[C]ode [R]ust Run --[R]elease' })
-  vim.keymap.set('n', '<leader>crb', '<cmd>tabnew | term cargo build<cr>', { desc = '[C]ode [R]ust [B]uild' })
-  vim.keymap.set('n', '<leader>crB', '<cmd>tabnew | term cargo build --release<cr>', { desc = '[C]ode [R]ust Build --[R]elease' })
-  vim.keymap.set('n', '<leader>crT', '<cmd>tabnew | term cargo test<cr>', { desc = '[C]ode [R]ust [T]est suite' })
-  vim.keymap.set('n', '<leader>crt', '<cmd>tabnew | term cargo nextest run --no-capture --test-threads=1<cr>', { desc = '[C]ode [R]ust [T]est' })
-  vim.keymap.set('n', '<leader>crc', '<cmd>tabnew | term cargo check<cr>', { desc = '[C]ode [R]ust [C]heck' })
-  vim.keymap.set('n', '<leader>crl', '<cmd>tabnew | term cargo clippy<cr>', { desc = '[C]ode [R]ust C[L]ippy lint' })
-  vim.keymap.set('n', '<leader>crd', function()
-    vim.cmd.RustDocstring()
-  end, { desc = '[C]ode [R]ust [D]ocstring current item' })
-  vim.keymap.set('n', '<leader>crD', function()
-    vim.cmd.RustDocstringAllKinds()
-  end, { desc = '[C]ode [R]ust [D]ocstring all kinds' })
   vim.keymap.set('n', '<leader>ct', '<Nop>', { desc = '[C]ode [T]est' })
   vim.keymap.set('n', '<leader>ctn', function()
     require('neotest').run.run()
@@ -214,34 +282,6 @@ function M.setup()
   vim.keymap.set('n', '<leader>ctk', function()
     require('neotest').jump.prev { status = 'failed' }
   end, { desc = '[C]ode [T]est [K] Jump to previous fail' })
-  vim.keymap.set('n', '<leader>cru', function()
-    vim.cmd.RustLsp { 'runnables' }
-  end, { desc = '[C]ode [R]ust R[U]nnables' })
-  vim.keymap.set('n', '<leader>crg', function()
-    vim.cmd.RustLsp { 'debuggables' }
-  end, { desc = '[C]ode [R]ust debu[g]gables' })
-  vim.keymap.set('n', '<leader>crp', function()
-    vim.cmd.RustLsp { 'parentModule' }
-  end, { desc = '[C]ode [R]ust [P]arent module' })
-  vim.keymap.set('n', '<leader>crm', function()
-    vim.cmd.RustLsp { 'expandMacro' }
-  end, { desc = '[C]ode [R]ust expand [M]acro' })
-  vim.keymap.set('n', '<leader>cre', function()
-    vim.cmd.RustLsp { 'explainError' }
-  end, { desc = '[C]ode [R]ust [E]xplain error' })
-  vim.keymap.set('n', '<leader>crO', function()
-    vim.cmd.RustLsp { 'openDocs' }
-  end, { desc = '[C]ode [R]ust [O]pen docs' })
-  vim.keymap.set('n', '<leader>crs', function()
-    vim.cmd.RustLsp { 'syntaxTree' }
-  end, { desc = '[C]ode [R]ust [S]yntax tree' })
-  vim.keymap.set('n', '<leader>crG', function()
-    if vim.fn.executable 'dot' ~= 1 then
-      vim.notify('`dot` executable (Graphviz) is required for the crate graph', vim.log.levels.WARN)
-      return
-    end
-    vim.cmd.RustLsp { 'viewCrateGraph', backend = 'graphviz', full = true }
-  end, { desc = '[C]ode [R]ust Crate [G]raph (Graphviz)' })
   -- Increase font size
   vim.keymap.set('n', '<C-=>', function()
     local font = vim.o.guifont
@@ -545,43 +585,55 @@ function M.setup()
     end
   end
 
-  -- [Code Zig] keymaps
-  vim.keymap.set('n', '<leader>cz', '<Nop>', { desc = '[C]ode [Z]ig' })
-  vim.keymap.set('n', '<leader>czb', function()
-    run_build_cmd({ 'zig', 'build' }, 'Zig: build')
-  end, { desc = '[C]ode [Z]ig [B]uild' })
+  vim.api.nvim_create_autocmd('FileType', {
+    pattern = 'zig',
+    callback = function(ev)
+      local buf = ev.buf
+      register_buffer_groups(buf, {
+        { '<leader>cz', group = '[C]ode [Z]ig', mode = 'n' },
+      })
 
-  vim.keymap.set('n', '<leader>czr', function()
-    run_build_cmd({ 'zig', 'build', 'run' }, 'Zig: run')
-  end, { desc = '[C]ode [Z]ig [R]un' })
+      local function map(lhs, rhs, desc)
+        vim.keymap.set('n', lhs, rhs, { buffer = buf, desc = desc })
+      end
 
-  vim.keymap.set('n', '<leader>czt', function()
-    vim.cmd 'write'
-    run_build_cmd({ 'zig', 'test', vim.fn.expand '%:p' }, 'Zig: test file')
-  end, { desc = '[C]ode [Z]ig [T]est file' })
+      map('<leader>cz', '<Nop>', '[C]ode [Z]ig')
+      map('<leader>czb', function()
+        run_build_cmd({ 'zig', 'build' }, 'Zig: build')
+      end, '[C]ode [Z]ig [B]uild')
 
-  vim.keymap.set('n', '<leader>czR', function()
-    vim.cmd 'write'
-    run_build_cmd({ 'zig', 'run', vim.fn.expand '%:p' }, 'Zig: run current file')
-  end, { desc = '[C]ode [Z]ig Run cu[R]rent file' })
+      map('<leader>czr', function()
+        run_build_cmd({ 'zig', 'build', 'run' }, 'Zig: run')
+      end, '[C]ode [Z]ig [R]un')
 
-  vim.keymap.set('n', '<leader>czf', function()
-    require('conform').format { lsp_format = 'fallback' }
-  end, { desc = '[C]ode [Z]ig [F]ormat' })
+      map('<leader>czt', function()
+        vim.cmd 'write'
+        run_build_cmd({ 'zig', 'test', vim.fn.expand '%:p' }, 'Zig: test file')
+      end, '[C]ode [Z]ig [T]est file')
 
-  vim.keymap.set('n', '<leader>czd', function()
-    require('dap').continue()
-  end, { desc = '[C]ode [Z]ig [D]ebug (continue)' })
+      map('<leader>czR', function()
+        vim.cmd 'write'
+        run_build_cmd({ 'zig', 'run', vim.fn.expand '%:p' }, 'Zig: run current file')
+      end, '[C]ode [Z]ig Run cu[R]rent file')
 
-  vim.keymap.set('n', '<leader>czi', function()
-    local buf = vim.api.nvim_get_current_buf()
-    local ok = pcall(vim.lsp.inlay_hint, buf, nil)
-    if not ok then
-      local enabled = vim.b.zig_inlay_hints_enabled or false
-      vim.b.zig_inlay_hints_enabled = not enabled
-      vim.lsp.inlay_hint(buf, vim.b.zig_inlay_hints_enabled)
-    end
-  end, { desc = '[C]ode [Z]ig [I]nlay hints toggle' })
+      map('<leader>czf', function()
+        require('conform').format { lsp_format = 'fallback' }
+      end, '[C]ode [Z]ig [F]ormat')
+
+      map('<leader>czd', function()
+        require('dap').continue()
+      end, '[C]ode [Z]ig [D]ebug (continue)')
+
+      map('<leader>czi', function()
+        local ok = pcall(vim.lsp.inlay_hint, buf, nil)
+        if not ok then
+          local enabled = vim.b.zig_inlay_hints_enabled or false
+          vim.b.zig_inlay_hints_enabled = not enabled
+          vim.lsp.inlay_hint(buf, vim.b.zig_inlay_hints_enabled)
+        end
+      end, '[C]ode [Z]ig [I]nlay hints toggle')
+    end,
+  })
 
   -- =========================
   -- [Code AHK] keymaps
@@ -687,130 +739,134 @@ function M.setup()
     return args
   end
 
-  -- Base group for which-key friendly descriptions
-  vim.keymap.set('n', '<leader>ch', '<Nop>', { desc = '[C]ode a[h]k' })
+  vim.api.nvim_create_autocmd('FileType', {
+    pattern = { 'autohotkey', 'ahk', 'ahk2' },
+    callback = function(ev)
+      local buf = ev.buf
+      register_buffer_groups(buf, {
+        { '<leader>ch', group = '[C]ode a[h]k', mode = 'n' },
+      })
 
-  -- [car] Run current script (normal)
-  vim.keymap.set('n', '<leader>chr', function()
-    vim.cmd.write()
-    local p = ahk_paths()
-    run_build_cmd({ p.ahk_exe, curfile() }, 'AHK: run current')
-  end, { desc = '[C]ode a[h]k [R]un current' })
-
-  vim.keymap.set('n', '<leader>chR', function()
-    vim.cmd.write()
-    local p = ahk_paths()
-    if not p.ahk_exe or p.ahk_exe == '' then
-      vim.notify('AutoHotkey executable not configured', vim.log.levels.WARN)
-      return
-    end
-    if vim.fn.executable(p.ahk_exe) ~= 1 and not vim.loop.fs_stat(p.ahk_exe) then
-      vim.notify('AutoHotkey executable not found: ' .. p.ahk_exe, vim.log.levels.WARN)
-      return
-    end
-    local script = curfile()
-    if script == '' then
-      vim.notify('No file associated with this buffer', vim.log.levels.WARN)
-      return
-    end
-    vim.ui.input({ prompt = 'Script arguments: ' }, function(input)
-      if input == nil then
-        return
+      local function map(lhs, rhs, desc)
+        vim.keymap.set('n', lhs, rhs, { buffer = buf, desc = desc })
       end
-      local extra_args, err = parse_ahk_args(input)
-      if err then
-        vim.notify(err, vim.log.levels.WARN)
-        return
-      end
-      local cmd = { p.ahk_exe, script }
-      if extra_args and #extra_args > 0 then
-        vim.list_extend(cmd, extra_args)
-      end
-      run_build_cmd(cmd, 'AHK: run with args')
-    end)
-  end, { desc = '[C]ode a[h]k Run with a[R]gs' })
 
-  vim.keymap.set('n', '<leader>ch?', function()
-    local symbol = vim.fn.expand '<cword>'
-    if symbol == nil or symbol == '' then
-      vim.notify('No symbol under cursor to look up', vim.log.levels.WARN)
-      return
-    end
-    local url = ('https://www.autohotkey.com/docs/v2/lib/%s.htm'):format(symbol)
-    run_build_cmd({ 'cmd.exe', '/C', 'start', '""', url }, 'AHK: docs lookup')
-  end, { desc = '[C]ode a[h]k [?] Docs for symbol' })
+      map('<leader>ch', '<Nop>', '[C]ode a[h]k')
 
-  -- [cae] Run current script with /ErrorStdOut (diagnostics in terminal/Overseer)
-  vim.keymap.set('n', '<leader>che', function()
-    vim.cmd.write()
-    local p = ahk_paths()
-    run_build_cmd({ p.ahk_exe, '/ErrorStdOut', curfile() }, 'AHK: run (stderr)')
-  end, { desc = '[C]ode a[h]k Run with [E]rrors (/ErrorStdOut)' })
+      map('<leader>chr', function()
+        vim.cmd.write()
+        local p = ahk_paths()
+        run_build_cmd({ p.ahk_exe, curfile() }, 'AHK: run current')
+      end, '[C]ode a[h]k [R]un current')
 
-  -- [caa] Run current script as Admin (UAC prompt)
-  vim.keymap.set('n', '<leader>chA', function()
-    vim.cmd.write()
-    local p = ahk_paths()
-    -- Use PowerShell so we can request elevation cleanly
-    local ps = ([[Start-Process -Verb RunAs -FilePath "%s" -ArgumentList "%s"]]):format(p.ahk_exe, curfile())
-    run_build_cmd({ 'powershell', '-NoProfile', '-Command', ps }, 'AHK: run as admin')
-  end, { desc = '[C]ode a[h]k Run as [A]dmin' })
+      map('<leader>chR', function()
+        vim.cmd.write()
+        local p = ahk_paths()
+        if not p.ahk_exe or p.ahk_exe == '' then
+          vim.notify('AutoHotkey executable not configured', vim.log.levels.WARN)
+          return
+        end
+        if vim.fn.executable(p.ahk_exe) ~= 1 and not vim.loop.fs_stat(p.ahk_exe) then
+          vim.notify('AutoHotkey executable not found: ' .. p.ahk_exe, vim.log.levels.WARN)
+          return
+        end
+        local script = curfile()
+        if script == '' then
+          vim.notify('No file associated with this buffer', vim.log.levels.WARN)
+          return
+        end
+        vim.ui.input({ prompt = 'Script arguments: ' }, function(input)
+          if input == nil then
+            return
+          end
+          local extra_args, err = parse_ahk_args(input)
+          if err then
+            vim.notify(err, vim.log.levels.WARN)
+            return
+          end
+          local cmd = { p.ahk_exe, script }
+          if extra_args and #extra_args > 0 then
+            vim.list_extend(cmd, extra_args)
+          end
+          run_build_cmd(cmd, 'AHK: run with args')
+        end)
+      end, '[C]ode a[h]k Run with a[R]gs')
 
-  vim.keymap.set('n', '<leader>chw', function()
-    vim.cmd.write()
-    local p = ahk_paths()
-    local spy = window_spy_path(p)
-    if not spy or spy == '' then
-      vim.notify('Unable to locate WindowSpy.ahk from AutoHotkey installation', vim.log.levels.ERROR)
-      return
-    end
-    run_build_cmd({ p.ahk_exe, spy }, 'AHK: Window Spy')
-  end, { desc = '[C]ode a[h]k [W]indow Spy' })
+      map('<leader>ch?', function()
+        local symbol = vim.fn.expand '<cword>'
+        if symbol == nil or symbol == '' then
+          vim.notify('No symbol under cursor to look up', vim.log.levels.WARN)
+          return
+        end
+        local url = ('https://www.autohotkey.com/docs/v2/lib/%s.htm'):format(symbol)
+        run_build_cmd({ 'cmd.exe', '/C', 'start', '""', url }, 'AHK: docs lookup')
+      end, '[C]ode a[h]k [?] Docs for symbol')
 
-  vim.keymap.set('n', '<leader>chH', function()
-    local p = ahk_paths()
-    local help_path = ahk_help_chm(p)
-    if not help_path or help_path == '' then
-      vim.notify('Unable to locate AutoHotkey.chm from AutoHotkey installation', vim.log.levels.ERROR)
-      return
-    end
-    run_build_cmd({ 'cmd.exe', '/C', 'start', '""', help_path }, 'AHK: help (CHM)')
-  end, { desc = '[C]ode a[h]k [H]elp (CHM)' })
+      map('<leader>che', function()
+        vim.cmd.write()
+        local p = ahk_paths()
+        run_build_cmd({ p.ahk_exe, '/ErrorStdOut', curfile() }, 'AHK: run (stderr)')
+      end, '[C]ode a[h]k Run with [E]rrors (/ErrorStdOut)')
 
-  -- [cac] Compile current script to exe (bin/<name>.exe). Uses icon <name>.ico if present.
-  vim.keymap.set('n', '<leader>chc', function()
-    vim.cmd.write()
-    local p = ahk_paths()
-    local infile = curfile()
-    local outdir = curdir() .. '\\bin'
-    local outfile = outdir .. '\\' .. curbasename() .. '.exe'
-    local icon = curdir() .. '\\' .. curbasename() .. '.ico'
+      map('<leader>chA', function()
+        vim.cmd.write()
+        local p = ahk_paths()
+        local ps = ([[Start-Process -Verb RunAs -FilePath "%s" -ArgumentList "%s"]]):format(p.ahk_exe, curfile())
+        run_build_cmd({ 'powershell', '-NoProfile', '-Command', ps }, 'AHK: run as admin')
+      end, '[C]ode a[h]k Run as [A]dmin')
 
-    if vim.fn.isdirectory(outdir) == 0 then
-      vim.fn.mkdir(outdir, 'p')
-    end
+      map('<leader>chw', function()
+        vim.cmd.write()
+        local p = ahk_paths()
+        local spy = window_spy_path(p)
+        if not spy or spy == '' then
+          vim.notify('Unable to locate WindowSpy.ahk from AutoHotkey installation', vim.log.levels.ERROR)
+          return
+        end
+        run_build_cmd({ p.ahk_exe, spy }, 'AHK: Window Spy')
+      end, '[C]ode a[h]k [W]indow Spy')
 
-    local args = { '/in', infile, '/out', outfile }
-    if vim.loop.fs_stat(icon) then
-      table.insert(args, '/icon')
-      table.insert(args, icon)
-    end
-    -- If you want to force a particular base exe, add:
-    -- table.insert(args, '/base'); table.insert(args, [[C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe]])
+      map('<leader>chH', function()
+        local p = ahk_paths()
+        local help_path = ahk_help_chm(p)
+        if not help_path or help_path == '' then
+          vim.notify('Unable to locate AutoHotkey.chm from AutoHotkey installation', vim.log.levels.ERROR)
+          return
+        end
+        run_build_cmd({ 'cmd.exe', '/C', 'start', '""', help_path }, 'AHK: help (CHM)')
+      end, '[C]ode a[h]k [H]elp (CHM)')
 
-    local cmd = vim.list_extend({ p.compiler }, args)
-    run_build_cmd(cmd, 'AHK: compile to exe')
-  end, { desc = '[C]ode a[h]k [C]ompile to exe' })
+      map('<leader>chc', function()
+        vim.cmd.write()
+        local p = ahk_paths()
+        local infile = curfile()
+        local outdir = curdir() .. '\\bin'
+        local outfile = outdir .. '\\' .. curbasename() .. '.exe'
+        local icon = curdir() .. '\\' .. curbasename() .. '.ico'
 
-  -- [cak] Kill all running AutoHotkey v2 processes (careful—global!)
-  vim.keymap.set('n', '<leader>chk', function()
-    run_build_cmd({ 'taskkill', '/F', '/IM', 'AutoHotkey64.exe' }, 'AHK: kill all v2 processes')
-  end, { desc = '[C]ode a[h]k [K]ill all AutoHotkey v2' })
+        if vim.fn.isdirectory(outdir) == 0 then
+          vim.fn.mkdir(outdir, 'p')
+        end
 
-  -- [cao] Open current script in Explorer (selected)
-  vim.keymap.set('n', '<leader>cho', function()
-    run_build_cmd({ 'explorer.exe', '/select,' .. curfile() }, 'AHK: open in Explorer')
-  end, { desc = '[C]ode a[h]k [O]pen in Explorer' })
+        local args = { '/in', infile, '/out', outfile }
+        if vim.loop.fs_stat(icon) then
+          table.insert(args, '/icon')
+          table.insert(args, icon)
+        end
+
+        local cmd = vim.list_extend({ p.compiler }, args)
+        run_build_cmd(cmd, 'AHK: compile to exe')
+      end, '[C]ode a[h]k [C]ompile to exe')
+
+      map('<leader>chk', function()
+        run_build_cmd({ 'taskkill', '/F', '/IM', 'AutoHotkey64.exe' }, 'AHK: kill all v2 processes')
+      end, '[C]ode a[h]k [K]ill all AutoHotkey v2')
+
+      map('<leader>cho', function()
+        run_build_cmd({ 'explorer.exe', '/select,' .. curfile() }, 'AHK: open in Explorer')
+      end, '[C]ode a[h]k [O]pen in Explorer')
+    end,
+  })
 
   -- =========================
   -- Utility

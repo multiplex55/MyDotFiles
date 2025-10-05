@@ -65,11 +65,6 @@ return {
         end,
       })
 
-      -- which-key group label (safe if which-key missing)
-      pcall(function()
-        require('which-key').add { { '<leader>ck', group = '[C]ode [K]oto' } }
-      end)
-
       -------------------------------------------------------------------------
       -- 3) Keybinds: <leader>ck… group
       -------------------------------------------------------------------------
@@ -77,6 +72,16 @@ return {
         pattern = 'koto',
         callback = function(ev)
           local buf = ev.buf
+          pcall(function()
+            require('which-key').add {
+              {
+                '<leader>ck',
+                group = '[C]ode [K]oto',
+                mode = 'n',
+                buffer = buf,
+              },
+            }
+          end)
           local function map(lhs, rhs, desc, mode)
             mode = mode or 'n'
             vim.keymap.set(mode, lhs, rhs, { buffer = buf, desc = desc })
