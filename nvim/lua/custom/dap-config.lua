@@ -46,9 +46,54 @@ dap.configurations.rust = {
     type = 'codelldb', --rust
     request = 'launch',
     program = function()
+      local uv = vim.uv or vim.loop
       local cwd = vim.fn.getcwd()
-      vim.fn.system 'cargo build'
-      local exe = cwd .. '/target/debug/' .. vim.fn.fnamemodify(cwd, ':t')
+      local exe_name = vim.fn.fnamemodify(cwd, ':t')
+      local exe = vim.fs.joinpath(cwd, 'target', 'debug', exe_name)
+
+      local function mtime_seconds(stat)
+        if not stat or not stat.mtime then
+          return nil
+        end
+        local mtime = stat.mtime
+        return (mtime.sec or 0) + (mtime.nsec or 0) / 1e9
+      end
+
+      local exe_stat = uv.fs_stat(exe)
+      local needs_build = exe_stat == nil
+
+      local manifest_paths = {
+        vim.fs.joinpath(cwd, 'Cargo.toml'),
+        vim.fs.joinpath(cwd, 'Cargo.lock'),
+      }
+
+      local latest_manifest_mtime = 0
+      for _, path in ipairs(manifest_paths) do
+        local stat = uv.fs_stat(path)
+        local mt = mtime_seconds(stat)
+        if mt and mt > latest_manifest_mtime then
+          latest_manifest_mtime = mt
+        end
+      end
+
+      if not needs_build and latest_manifest_mtime > 0 then
+        local exe_mtime = mtime_seconds(exe_stat) or 0
+        if exe_mtime < latest_manifest_mtime then
+          needs_build = true
+        end
+      end
+
+      if needs_build then
+        local result = vim.system({ 'cargo', 'build' }, { cwd = cwd, text = true }):wait()
+        if result.code ~= 0 then
+          vim.notify(
+            ('[Rust Debug] cargo build failed (code %d):\n%s'):format(result.code, result.stderr or ''),
+            vim.log.levels.ERROR
+          )
+          return nil
+        end
+      end
+
       return exe
     end,
     cwd = '${workspaceFolder}',
