@@ -33,12 +33,6 @@ A starting point for Neovim that is:
 | `<leader>hf` | Start a `flash.nvim` jump while staying alongside the existing Hop leader mappings. |
 | `<leader>hF` | Launch the Treesitter-based Flash search from the hop leader group. |
 
-### Clipboard
-
-| Shortcut | Action |
-| --- | --- |
-| `<leader>sY` | Open the Telescope-powered Neoclip picker to browse clipboard history. |
-
 ## Installation
 
 ### Install Neovim
