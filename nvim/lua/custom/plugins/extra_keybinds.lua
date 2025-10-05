@@ -1,4 +1,4 @@
-local M = { {}}
+local M = {}
 
 local did_setup = false
 
@@ -853,5 +853,5 @@ vim.api.nvim_create_autocmd('User', {
   end,
 })
 
-return M
+return setmetatable({}, { __index = M })
 
