@@ -223,8 +223,33 @@ if not vim.g.custom_dap_signs_defined then
   vim.api.nvim_set_hl(0, 'DapBreak', { fg = break_color })
   vim.api.nvim_set_hl(0, 'DapStop', { fg = stop_color })
 
+  local function should_use_nerd_font()
+    if vim.g.custom_dap_force_nerd_font ~= nil then
+      return vim.g.custom_dap_force_nerd_font
+    end
+
+    if not vim.g.have_nerd_font then
+      return false
+    end
+
+    -- Some terminals (like WezTerm on Windows) can have Nerd Font glyph issues
+    -- even when the global flag is enabled. Automatically fall back to the
+    -- simple glyphs when we detect a WezTerm TUI unless the override above is
+    -- set explicitly.
+    for _, ui in ipairs(vim.api.nvim_list_uis()) do
+      local term = (ui.term or ''):lower()
+      if term:find('wezterm', 1, true) then
+        return false
+      end
+    end
+
+    return true
+  end
+
+  local use_nerd_font = should_use_nerd_font()
+
   local breakpoint_icons
-  if vim.g.have_nerd_font then
+  if use_nerd_font then
     breakpoint_icons = {
       DapBreakpoint = '',
       DapBreakpointCondition = '',
