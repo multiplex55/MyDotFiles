@@ -33,6 +33,14 @@ A starting point for Neovim that is:
 | `<leader>hf` | Start a `flash.nvim` jump while staying alongside the existing Hop leader mappings. |
 | `<leader>hF` | Launch the Treesitter-based Flash search from the hop leader group. |
 
+### Comment toggles
+
+| Shortcut | Action |
+| --- | --- |
+| `gcc` | Toggle a line comment for the current line. |
+| `gbc` | Toggle a block comment surrounding the current line when supported. |
+| `gc{motion}` | Comment the text covered by the following motion using Treesitter-aware delimiters. |
+
 ## Installation
 
 ### Install Neovim
