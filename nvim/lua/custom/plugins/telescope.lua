@@ -65,6 +65,8 @@ return {
       pcall(require('telescope').load_extension, 'fzf')
       pcall(require('telescope').load_extension, 'ui-select')
 
+      pcall(require('telescope').load_extension, 'session-lens')
+
       -- See `:help telescope.builtin`
       local builtin = require 'telescope.builtin'
       vim.keymap.set('n', '<leader>sh', builtin.help_tags, {
@@ -150,7 +152,6 @@ return {
       vim.keymap.set('n', '<leader>sR', builtin.registers, { desc = '[S]earch Yanks / [R]egisters' })
 
       vim.keymap.set('n', '<leader>sS', builtin.lsp_workspace_symbols, { desc = '[S]earch [S]ymbols in workspace' })
-
     end,
   },
 }
