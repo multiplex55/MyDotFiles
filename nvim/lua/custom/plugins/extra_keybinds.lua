@@ -1,5 +1,15 @@
-return (function()
+local M = {}
+
+local did_setup = false
+
+function M.setup()
+  if did_setup then
+    return
+  end
+  did_setup = true
+
   local rhai_utils = require 'custom.lang.rhai'
+
 
   -- Trouble & quickfix bindings
   local function toggle_trouble(mode)
@@ -834,5 +844,14 @@ return (function()
     vim.notify('Copied path: ' .. file)
   end, { desc = '[Path] Copy full path' })
 
-  return {}
-end)()
+end
+
+vim.api.nvim_create_autocmd('User', {
+  pattern = 'VeryLazy',
+  callback = function()
+    M.setup()
+  end,
+})
+
+return setmetatable({}, { __index = M })
+
