@@ -1,44 +1,78 @@
 local dap = require 'dap'
 
-local mason_registry = require 'mason-registry'
+local rust_dap_initialized = false
 
--- Use environment variable to get install path
-local install_path = vim.fn.expand '$MASON' .. '\\packages\\codelldb'
-local extension_path = install_path .. '\\extension\\'
-local codelldb_path = extension_path .. 'adapter\\codelldb.exe'
-local liblldb_path = extension_path .. 'lldb\\bin\\liblldb.dll'
+local function setup_rust_dap()
+  if rust_dap_initialized then
+    return
+  end
 
-local cfg = require 'rustaceanvim.config'
+  local ok, cfg = pcall(require, 'rustaceanvim.config')
+  if not ok then
+    return
+  end
 
--- Configure Rust DAP
-vim.g.rustaceanvim = {
-  dap = {
-    adapter = cfg.get_codelldb_adapter(codelldb_path, liblldb_path, function(callback, adapter)
-      callback(adapter)
+  rust_dap_initialized = true
 
-      local session = require('dap').session()
-      if session then
-        -- 🛠 Inject initial LLDB settings
-        local function lldb_eval(cmd)
-          session:request('evaluate', {
-            expression = cmd,
-            context = 'repl',
-          }, function(err, _)
-            if err then
-              vim.notify('[LLDB Injection Error] ' .. err.message, vim.log.levels.ERROR)
-            end
-          end)
+  -- Use environment variable to get install path
+  local install_path = vim.fn.expand '$MASON' .. '\\packages\\codelldb'
+  local extension_path = install_path .. '\\extension\\'
+  local codelldb_path = extension_path .. 'adapter\\codelldb.exe'
+  local liblldb_path = extension_path .. 'lldb\\bin\\liblldb.dll'
+
+  vim.g.rustaceanvim = vim.tbl_deep_extend('force', vim.g.rustaceanvim or {}, {
+    dap = {
+      adapter = cfg.get_codelldb_adapter(codelldb_path, liblldb_path, function(callback, adapter)
+        callback(adapter)
+
+        local session = require('dap').session()
+        if session then
+          -- 🛠 Inject initial LLDB settings
+          local function lldb_eval(cmd)
+            session:request('evaluate', {
+              expression = cmd,
+              context = 'repl',
+            }, function(err, _)
+              if err then
+                vim.notify('[LLDB Injection Error] ' .. err.message, vim.log.levels.ERROR)
+              end
+            end)
+          end
+
+          lldb_eval 'settings set target.language rust'
+          lldb_eval 'settings set target.inline-breakpoint-strategy always'
+          lldb_eval 'settings set target.x86-disassembly-flavor intel'
+
+          vim.notify('[LLDB Setup] Rust mode and options injected ✅', vim.log.levels.INFO)
         end
+      end),
+    },
+  })
+end
 
-        lldb_eval 'settings set target.language rust'
-        lldb_eval 'settings set target.inline-breakpoint-strategy always'
-        lldb_eval 'settings set target.x86-disassembly-flavor intel'
+vim.api.nvim_create_autocmd('User', {
+  pattern = 'LazyLoad',
+  callback = function(event)
+    if event.data == 'rustaceanvim' then
+      setup_rust_dap()
+    end
+  end,
+})
 
-        vim.notify('[LLDB Setup] Rust mode and options injected ✅', vim.log.levels.INFO)
-      end
-    end),
-  },
-}
+vim.api.nvim_create_autocmd('FileType', {
+  pattern = { 'rust', 'toml', 'ron' },
+  callback = function()
+    local ok, lazy = pcall(require, 'lazy')
+    if ok then
+      lazy.load { plugins = { 'rustaceanvim' } }
+    end
+    setup_rust_dap()
+  end,
+})
+
+if package.loaded['rustaceanvim'] or package.loaded['rustaceanvim.config'] then
+  setup_rust_dap()
+end
 
 dap.configurations.rust = {
   {
