@@ -10,6 +10,13 @@ A starting point for Neovim that is:
 
 **NOT** a Neovim distribution, but instead a starting point for your configuration.
 
+## UI enhancements
+
+This fork bundles [folke/dressing.nvim](https://github.com/folke/dressing.nvim) so that
+Neovim's built-in `vim.ui.input` and `vim.ui.select` prompts reuse the same polished
+Telescope UI that powers the Koto, Rhai, and AutoHotkey helpers. The plugin is lazy-loaded
+and needs no manual setup beyond installing dependencies via `:Lazy sync`.
+
 ## Custom Keymaps
 
 ### Rust tools
