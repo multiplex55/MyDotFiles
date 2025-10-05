@@ -491,17 +491,22 @@ return (function()
   vim.keymap.set('n', '<space>sb', ':Telescope file_browser path=%":p:h select_buffer=true<CR>', { desc = '[S]earch file [B]rowser' })
   -- Nvim Spectre
 
+  local function spectre()
+    require('lazy').load { plugins = { 'nvim-spectre' } }
+    return require 'spectre'
+  end
+
   vim.keymap.set('n', '<leader>srs', function()
-    require('spectre').toggle()
+    spectre().toggle()
   end, { desc = '[s]earch [r]eplace [s]pectre' })
   vim.keymap.set('n', '<leader>srw', function()
-    require('spectre').open_visual { select_word = true }
+    spectre().open_visual { select_word = true }
   end, { desc = '[s]earch [r]eplace Spectre visual under [w]ord' })
   vim.keymap.set('v', '<leader>srv', function()
-    require('spectre').open_visual()
+    spectre().open_visual()
   end, { desc = '[s]earch [r]eplace Spectre [v]isual' })
   vim.keymap.set('n', '<leader>src', function()
-    require('spectre').open_file_search()
+    spectre().open_file_search()
   end, { desc = '[s]earch [r]eplace Spectre [c]urrent File' })
 
   -- Helper to run a command in Overseer if present, else a terminal split
