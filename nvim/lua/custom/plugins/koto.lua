@@ -65,23 +65,40 @@ return {
         end,
       })
 
-      -- which-key group label (safe if which-key missing)
-      pcall(function()
-        require('which-key').add { { '<leader>ck', group = '[C]ode [K]oto' } }
-      end)
-
       -------------------------------------------------------------------------
       -- 3) Keybinds: <leader>ck… group
       -------------------------------------------------------------------------
-      vim.api.nvim_create_autocmd('FileType', {
-        pattern = 'koto',
-        callback = function(ev)
-          local buf = ev.buf
+      do
+        -- Optional Which-Key v3 group (safe/no-op if wk missing/old)
+        local function add_wk_group(buf)
+          local ok, wk = pcall(require, 'which-key')
+          if not ok or type(wk.add) ~= 'function' then
+            return
+          end
+          wk.add {
+            { '<leader>ck', group = '[C]ode [K]oto', mode = { 'n', 'x' }, buffer = buf },
+          }
+        end
+
+        -- Everything that should run when a Koto buffer is active
+        local function koto_attach(ev)
+          local buf = ev.buf or 0
+
+          -- prevent duplicate setup on the same buffer
+          if vim.b[buf].koto_keys_attached then
+            return
+          end
+          vim.b[buf].koto_keys_attached = true
+
+          add_wk_group(buf)
+
+          -- buffer-local map helper
           local function map(lhs, rhs, desc, mode)
             mode = mode or 'n'
-            vim.keymap.set(mode, lhs, rhs, { buffer = buf, desc = desc })
+            vim.keymap.set(mode, lhs, rhs, { buffer = buf, silent = true, noremap = true, desc = desc })
           end
 
+          -- ensure we’re actually on a .koto file
           local function ensure_koto_file()
             local file = vim.api.nvim_buf_get_name(buf)
             if file == '' or not file:match '%.koto$' then
@@ -91,6 +108,7 @@ return {
             return file
           end
 
+          -- try Overseer first; fall back to a bottom terminal split
           local function run_overseer(cmd, args, cwd)
             local ok, overseer = pcall(require, 'overseer')
             if not ok then
@@ -103,7 +121,7 @@ return {
               components = { 'default' },
             }
             task:start()
-            overseer.open { enter = false, direction = 'bottom' }
+            pcall(overseer.open, { enter = false, direction = 'bottom' })
             return true
           end
 
@@ -136,8 +154,16 @@ return {
                   table.insert(args, a)
                 end
               end
-              if not run_overseer('koto', vim.list_extend({ file }, args)) then
-                local cmdline = 'koto "' .. file .. '" ' .. (input or '')
+              local full = { file }
+              if vim.list_extend then
+                vim.list_extend(full, args)
+              else
+                for _, a in ipairs(args) do
+                  table.insert(full, a)
+                end
+              end
+              if not run_overseer('koto', full) then
+                local cmdline = string.format('koto "%s"%s', file, (#args > 0 and ' ' .. table.concat(args, ' ') or ''))
                 term_run(cmdline)
               end
             end)
@@ -152,14 +178,29 @@ return {
 
           -- LSP helpers (buffer-local)
           map('<leader>ckf', function()
-            vim.lsp.buf.format { async = false }
+            if vim.lsp.buf.format then
+              vim.lsp.buf.format { async = false }
+            end
           end, '[C]ode [K]oto [F]ormat')
           map('<leader>ckh', vim.lsp.buf.hover, '[C]ode [K]oto [H]over')
           map('<leader>ckg', vim.lsp.buf.definition, '[C]ode [K]oto [G]oto def')
           map('<leader>ckn', vim.lsp.buf.rename, '[C]ode [K]oto Re[n]ame')
           map('<leader>cka', vim.lsp.buf.code_action, '[C]ode [K]oto Code [A]ction', { 'n', 'x' })
-        end,
-      })
+        end
+
+        -- Autocmd for future Koto buffers
+        vim.api.nvim_create_autocmd('FileType', {
+          pattern = 'koto',
+          callback = koto_attach,
+        })
+
+        -- Also attach to any already-open Koto buffers (e.g. after session restore)
+        for _, b in ipairs(vim.api.nvim_list_bufs()) do
+          if vim.api.nvim_buf_is_loaded(b) and vim.bo[b].filetype == 'koto' then
+            koto_attach { buf = b }
+          end
+        end
+      end
     end,
   },
 }
