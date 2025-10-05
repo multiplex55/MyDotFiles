@@ -58,17 +58,17 @@ function M.setup()
     callback = function(ev)
       local buf = ev.buf
       register_buffer_groups(buf, {
-        { '<leader>n', group = '[N]im', mode = 'n' },
+        { '<leader>cn', group = '[C]ode [N]im', mode = 'n' },
       })
 
-      vim.keymap.set('n', '<leader>npr', function()
+      vim.keymap.set('n', '<leader>cnpr', function()
         local dir_path = vim.fn.expand '%:p:h'
         local filename_no_ext = vim.fn.expand '%:t:r'
         local full_path_with_ext = vim.fn.expand '%:p'
 
         local cmd = string.format(':tabnew | term nim cpp -d:release -r --out:"%s\\bin\\%s" "%s"', dir_path, filename_no_ext, full_path_with_ext)
         vim.cmd(cmd)
-      end, { buffer = buf, desc = '[n]im c[p]p [r]un release' })
+      end, { buffer = buf, desc = '[C]ode [N]im c[P]p [R]un release' })
     end,
   })
 
