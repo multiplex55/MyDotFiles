@@ -8,8 +8,6 @@ function M.setup()
   end
   did_setup = true
 
-  local rhai_utils = require 'custom.lang.rhai'
-
   local function register_buffer_groups(buf, spec)
     local ok, wk = pcall(require, 'which-key')
     if not ok then
@@ -142,100 +140,6 @@ function M.setup()
     end,
   })
 
-  vim.api.nvim_create_autocmd('FileType', {
-    pattern = 'rhai',
-    callback = function(ev)
-      local buf = ev.buf
-
-      vim.keymap.set('n', '<leader>cRf', function()
-        rhai_utils.format_buffer(buf)
-      end, { buffer = buf, desc = '[C]ode [R]hai [F]ormat buffer' })
-
-      vim.keymap.set('n', '<leader>cRF', function()
-        if not rhai_utils.rhai_executable() then
-          return
-        end
-        local args = { 'fmt' }
-        local root = rhai_utils.get_root(vim.api.nvim_buf_get_name(buf))
-        if not rhai_utils.run_overseer('rhai', args, root) then
-          rhai_utils.term_run('rhai', args, root)
-        end
-      end, { buffer = buf, desc = '[C]ode [R]hai [F]ormat workspace' })
-
-      vim.keymap.set('n', '<leader>cRc', function()
-        if not rhai_utils.rhai_executable() then
-          return
-        end
-        local args = { 'fmt', '--check' }
-        local root = rhai_utils.get_root(vim.api.nvim_buf_get_name(buf))
-        if not rhai_utils.run_overseer('rhai', args, root) then
-          rhai_utils.term_run('rhai', args, root)
-        end
-      end, { buffer = buf, desc = '[C]ode [R]hai [C]heck formatting' })
-
-      vim.keymap.set('n', '<leader>cRr', function()
-        if not rhai_utils.rhai_executable() then
-          return
-        end
-        local file = rhai_utils.ensure_rhai_file(buf)
-        if not file then
-          return
-        end
-        vim.cmd.write()
-        local args = { 'run', file }
-        local root = rhai_utils.get_root(file)
-        if not rhai_utils.run_overseer('rhai', args, root) then
-          rhai_utils.term_run('rhai', args, root)
-        end
-      end, { buffer = buf, desc = '[C]ode [R]hai [R]un file' })
-
-      vim.keymap.set('n', '<leader>cRR', function()
-        if not rhai_utils.rhai_executable() then
-          return
-        end
-        local file = rhai_utils.ensure_rhai_file(buf)
-        if not file then
-          return
-        end
-        vim.cmd.write()
-        local root = rhai_utils.get_root(file)
-        vim.ui.input({ prompt = 'Extra rhai args: ' }, function(input)
-          if input == nil then
-            return
-          end
-          local args = { 'run', file }
-          if input ~= '' then
-            local extra = vim.split(input, '%s+', { trimempty = true })
-            if #extra > 0 then
-              vim.list_extend(args, extra)
-            end
-          end
-          if not rhai_utils.run_overseer('rhai', args, root) then
-            rhai_utils.term_run('rhai', args, root)
-          end
-        end)
-      end, { buffer = buf, desc = '[C]ode [R]hai Run with ext[R]a args' })
-
-      vim.keymap.set('n', '<leader>cRt', function()
-        if not rhai_utils.rhai_executable() then
-          return
-        end
-        local file = vim.api.nvim_buf_get_name(buf)
-        local root = rhai_utils.get_root(file)
-        if not rhai_utils.run_overseer('rhai', nil, root) then
-          rhai_utils.term_run('rhai', nil, root)
-        end
-      end, { buffer = buf, desc = '[C]ode [R]hai [T]erminal REPL' })
-
-      vim.keymap.set('n', '<leader>cRh', vim.lsp.buf.hover, { buffer = buf, desc = '[C]ode [R]hai [H]over' })
-      vim.keymap.set('n', '<leader>cRg', vim.lsp.buf.definition, { buffer = buf, desc = '[C]ode [R]hai [G]oto def' })
-      vim.keymap.set('n', '<leader>cRn', vim.lsp.buf.rename, { buffer = buf, desc = '[C]ode [R]hai Re[n]ame' })
-      vim.keymap.set({ 'n', 'x' }, '<leader>cRa', vim.lsp.buf.code_action, {
-        buffer = buf,
-        desc = '[C]ode [R]hai Code [A]ction',
-      })
-    end,
-  })
   vim.keymap.set('n', '<leader>ct', '<Nop>', { desc = '[C]ode [T]est' })
   vim.keymap.set('n', '<leader>ctn', function()
     require('neotest').run.run()

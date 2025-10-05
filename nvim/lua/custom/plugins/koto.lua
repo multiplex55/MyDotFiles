@@ -68,20 +68,16 @@ return {
       -------------------------------------------------------------------------
       -- 3) Keybinds: <leader>ck… group
       -------------------------------------------------------------------------
+      pcall(function()
+        require('which-key').add {
+          { '<leader>ck', group = '[C]ode [K]oto' },
+        }
+      end)
+
       vim.api.nvim_create_autocmd('FileType', {
         pattern = 'koto',
         callback = function(ev)
           local buf = ev.buf
-          pcall(function()
-            require('which-key').add {
-              {
-                '<leader>ck',
-                group = '[C]ode [K]oto',
-                mode = 'n',
-                buffer = buf,
-              },
-            }
-          end)
           local function map(lhs, rhs, desc, mode)
             mode = mode or 'n'
             vim.keymap.set(mode, lhs, rhs, { buffer = buf, desc = desc })
