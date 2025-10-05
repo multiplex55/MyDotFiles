@@ -9,6 +9,7 @@ return {
         'nim_format_string',
         'bash',
         'c',
+        'comment',
         'diff',
         'html',
         'lua',
