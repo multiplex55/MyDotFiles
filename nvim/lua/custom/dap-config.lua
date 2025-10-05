@@ -206,12 +206,49 @@ require('nvim-dap-virtual-text').setup {
 -- Telescope integration
 require('telescope').load_extension 'dap'
 
--- Custom Icons for Debugging
-vim.fn.sign_define('DapBreakpoint', { text = '🛑', texthl = '', linehl = '', numhl = '' })
-vim.fn.sign_define('DapStopped', { text = '👉', texthl = '', linehl = '', numhl = '' })
-vim.fn.sign_define('DapBreakpointRejected', { text = '⚠️', texthl = '', linehl = '', numhl = '' })
-vim.fn.sign_define('DapLogPoint', { text = '📝', texthl = '', linehl = '', numhl = '' })
-vim.fn.sign_define('DapBreakpointCondition', { text = '🔵', texthl = '', linehl = '', numhl = '' })
+-- Sign/hl setup runs after nvim-dap loads via the plugin config callback. Guarding keeps the
+-- definitions idempotent if the module gets re-sourced.
+if not vim.g.custom_dap_signs_defined then
+  local function hex_from_hl(name, fallback)
+    local ok, hl = pcall(vim.api.nvim_get_hl, 0, { name = name, link = false })
+    if ok and hl and hl.fg then
+      return string.format('#%06x', hl.fg)
+    end
+    return fallback
+  end
+
+  local break_color = hex_from_hl('DiagnosticSignError', '#e51400')
+  local stop_color = hex_from_hl('DiagnosticSignWarn', '#ffcc00')
+
+  vim.api.nvim_set_hl(0, 'DapBreak', { fg = break_color })
+  vim.api.nvim_set_hl(0, 'DapStop', { fg = stop_color })
+
+  local breakpoint_icons
+  if vim.g.have_nerd_font then
+    breakpoint_icons = {
+      DapBreakpoint = '',
+      DapBreakpointCondition = '',
+      DapBreakpointRejected = '',
+      DapLogPoint = '',
+      DapStopped = '',
+    }
+  else
+    breakpoint_icons = {
+      DapBreakpoint = '●',
+      DapBreakpointCondition = '⊜',
+      DapBreakpointRejected = '⊘',
+      DapLogPoint = '◆',
+      DapStopped = '⭔',
+    }
+  end
+
+  for name, icon in pairs(breakpoint_icons) do
+    local hl = name == 'DapStopped' and 'DapStop' or 'DapBreak'
+    vim.fn.sign_define(name, { text = icon, texthl = hl, numhl = hl })
+  end
+
+  vim.g.custom_dap_signs_defined = true
+end
 
 -- Keybindings
 local map = vim.keymap.set
