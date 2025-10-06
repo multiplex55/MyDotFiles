@@ -158,7 +158,23 @@ return {
 
       vim.keymap.set('n', '<leader>sR', builtin.registers, { desc = '[S]earch Yanks / [R]egisters' })
 
-      vim.keymap.set('n', '<leader>sS', builtin.lsp_workspace_symbols, { desc = '[S]earch [S]ymbols in workspace' })
+      local function has_lsp_clients(bufnr)
+        local get_clients = vim.lsp.get_clients or vim.lsp.get_active_clients
+        if not get_clients then
+          return false
+        end
+        local clients = get_clients({ bufnr = bufnr })
+        return clients and next(clients) ~= nil
+      end
+
+      vim.keymap.set('n', '<leader>sS', function()
+        local bufnr = vim.api.nvim_get_current_buf()
+        if not has_lsp_clients(bufnr) then
+          vim.notify('No active LSP clients attached for workspace symbol search.', vim.log.levels.WARN)
+          return
+        end
+        builtin.lsp_workspace_symbols()
+      end, { desc = '[S]earch [S]ymbols in workspace' })
       vim.keymap.set('n', '<leader>su', function()
         require('telescope').extensions.undo.undo()
       end, { desc = '[S]earch [U]ndo history' })
