@@ -373,12 +373,15 @@ function M.setup()
   end, { desc = '[D]ashboard [D]isplay snacks' })
   -- GIT and git diff
   vim.keymap.set('n', '<leader>Gn', function()
+    require('lazy').load { plugins = { 'neogit' } }
     require('neogit').open()
   end, { desc = '[G]IT [n]eogit' })
   vim.keymap.set('n', '<leader>Gd', function()
+    require('lazy').load { plugins = { 'diffview.nvim' } }
     require('diffview').open()
   end, { desc = '[G]IT [d]iffview' })
   vim.keymap.set('n', '<leader>GD', function()
+    require('lazy').load { plugins = { 'mini.diff' } }
     require('mini.diff').open()
   end, { desc = '[G]IT [D]iff Overlay' })
   -- HOP - EasyMotion-style navigation
