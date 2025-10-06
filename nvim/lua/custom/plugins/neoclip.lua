@@ -4,6 +4,7 @@ return {
     dependencies = {
       'nvim-lua/plenary.nvim',
       'nvim-telescope/telescope.nvim',
+      'kkharji/sqlite.lua',
     },
     config = function()
       require('neoclip').setup {
