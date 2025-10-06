@@ -19,6 +19,7 @@ return {
         end,
       },
       { 'nvim-telescope/telescope-ui-select.nvim' }, -- Useful for getting pretty icons, but requires a Nerd Font.
+      'debugloop/telescope-undo.nvim',
       {
         'nvim-tree/nvim-web-devicons',
         enabled = vim.g.have_nerd_font,
@@ -64,6 +65,7 @@ return {
       -- Enable Telescope extensions if they are installed
       pcall(require('telescope').load_extension, 'fzf')
       pcall(require('telescope').load_extension, 'ui-select')
+      pcall(require('telescope').load_extension, 'undo')
 
       pcall(require('telescope').load_extension, 'session-lens')
 
@@ -152,6 +154,9 @@ return {
       vim.keymap.set('n', '<leader>sR', builtin.registers, { desc = '[S]earch Yanks / [R]egisters' })
 
       vim.keymap.set('n', '<leader>sS', builtin.lsp_workspace_symbols, { desc = '[S]earch [S]ymbols in workspace' })
+      vim.keymap.set('n', '<leader>su', function()
+        require('telescope').extensions.undo.undo()
+      end, { desc = '[S]earch [U]ndo history' })
     end,
   },
 }
