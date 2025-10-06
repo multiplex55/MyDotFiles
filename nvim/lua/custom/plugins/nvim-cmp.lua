@@ -34,7 +34,9 @@ return {
       --  nvim-cmp does not ship with all sources by default. They are split
       --  into multiple repos for maintenance purposes.
       'hrsh7th/cmp-nvim-lsp',
+      'hrsh7th/cmp-buffer',
       'hrsh7th/cmp-path',
+      'hrsh7th/cmp-cmdline',
     },
     config = function()
       -- See `:help cmp`
@@ -119,10 +121,31 @@ return {
             name = 'luasnip',
           },
           {
+            name = 'buffer',
+            keyword_length = 3,
+            priority_weight = 80,
+          },
+          {
             name = 'path',
           },
         },
       }
+
+      cmp.setup.cmdline({ '/', '?' }, {
+        mapping = cmp.mapping.preset.cmdline(),
+        sources = {
+          { name = 'buffer' },
+        },
+      })
+
+      cmp.setup.cmdline(':', {
+        mapping = cmp.mapping.preset.cmdline(),
+        sources = cmp.config.sources({
+          { name = 'path' },
+        }, {
+          { name = 'cmdline' },
+        }),
+      })
 
       require('lazy').load { plugins = { 'nvim-autopairs' } }
       local cmp_autopairs = require 'nvim-autopairs.completion.cmp'
