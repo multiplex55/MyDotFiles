@@ -66,6 +66,7 @@ return {
       pcall(require('telescope').load_extension, 'fzf')
       pcall(require('telescope').load_extension, 'ui-select')
       pcall(require('telescope').load_extension, 'undo')
+      pcall(require('telescope').load_extension, 'neoclip')
 
       pcall(require('telescope').load_extension, 'session-lens')
 
@@ -141,6 +142,10 @@ return {
       end, {
         desc = '[S]earch [/] in Open Files',
       })
+
+      vim.keymap.set('n', '<leader>sy', function()
+        require('telescope').extensions.neoclip.default()
+      end, { desc = '[S]earch [Y]anks (Neoclip)' })
 
       -- Shortcut for searching your Neovim configuration files
       vim.keymap.set('n', '<leader>sn', function()
