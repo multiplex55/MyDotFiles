@@ -10,6 +10,13 @@ A starting point for Neovim that is:
 
 **NOT** a Neovim distribution, but instead a starting point for your configuration.
 
+## UI enhancements
+
+This fork bundles [folke/noice.nvim](https://github.com/folke/noice.nvim) to modernize the
+command line, popup menus, and Neovim's built-in `vim.ui.input`/`vim.ui.select` prompts.
+The plugin is lazy-loaded and picks up your notify configuration to present polished
+floating windows for helper workflows like Koto, Rhai, and AutoHotkey.
+
 ## Custom Keymaps
 
 ### Rust tools
