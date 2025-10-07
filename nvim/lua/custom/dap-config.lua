@@ -365,9 +365,10 @@ local function create_floating_window(title, content)
     title_pos = 'center',
   })
 
-  vim.keymap.set('n', 'q', function()
+  -- Use <Esc> so plain `q` is free for macro recording.
+  vim.keymap.set('n', '<Esc>', function()
     vim.api.nvim_win_close(win, true)
-  end, { buffer = buf })
+  end, { buffer = buf, desc = 'Close DAP floating window' })
 
   return buf, win
 end
