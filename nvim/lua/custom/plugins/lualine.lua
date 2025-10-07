@@ -1,32 +1,20 @@
 return {
-
   {
     'nvim-lualine/lualine.nvim',
     dependencies = { 'nvim-tree/nvim-web-devicons' },
     config = function()
-      local macro_status = function()
+      local function macro_recording()
         local recording = vim.fn.reg_recording()
-        if recording ~= '' then
-          return string.format('󰑋 REC @%s', recording)
+        if recording == nil or recording == '' then
+          recording = vim.fn.reg_executing()
         end
 
-        local executing = vim.fn.reg_executing()
-        if executing ~= '' then
-          return string.format('󰑋 RUN @%s', executing)
+        if recording == nil or recording == '' then
+          return ''
         end
 
-        return ''
+        return ' @' .. recording
       end
-
-      local function refresh_lualine()
-        vim.schedule(function()
-          require('lualine').refresh()
-        end)
-      end
-
-      vim.api.nvim_create_autocmd({ 'RecordingEnter', 'RecordingLeave', 'CmdlineEnter', 'CmdlineLeave' }, {
-        callback = refresh_lualine,
-      })
 
       require('lualine').setup {
         options = {
@@ -44,16 +32,41 @@ return {
           },
         },
         sections = {
-          lualine_a = { 'mode' },
+          lualine_a = { macro_recording, 'mode' },
           lualine_b = { 'branch', 'diff', 'diagnostics' },
-          lualine_c = { 'filename', macro_status },
+          lualine_c = { 'filename' },
           lualine_x = { 'encoding', 'fileformat', 'filetype' },
           lualine_y = { 'progress' },
           lualine_z = { 'location' },
         },
+        inactive_sections = {
+          lualine_a = {},
+          lualine_b = {},
+          lualine_c = { 'filename' },
+          lualine_x = { 'location' },
+          lualine_y = {},
+          lualine_z = {},
+        },
         winbar = nil,
         inactive_winbar = nil,
       }
+
+      local function refresh_lualine()
+        local ok, lualine = pcall(require, 'lualine')
+        if ok then
+          lualine.refresh { place = { 'statusline' }, trigger = 'autocmd' }
+        end
+      end
+
+      vim.api.nvim_create_autocmd('RecordingEnter', {
+        callback = refresh_lualine,
+      })
+
+      vim.api.nvim_create_autocmd('RecordingLeave', {
+        callback = function()
+          vim.defer_fn(refresh_lualine, 50)
+        end,
+      })
     end,
   },
 }
