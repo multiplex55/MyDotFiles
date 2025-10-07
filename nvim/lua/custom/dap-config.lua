@@ -365,10 +365,18 @@ local function create_floating_window(title, content)
     title_pos = 'center',
   })
 
-  -- Use <Esc> so plain `q` is free for macro recording.
-  vim.keymap.set('n', '<Esc>', function()
+  -- Ensure we don't shadow macro recording: drop any legacy `q` mapping.
+  pcall(vim.keymap.del, 'n', 'q', { buffer = buf })
+
+  local close_floating = function()
     vim.api.nvim_win_close(win, true)
-  end, { buffer = buf, desc = 'Close DAP floating window' })
+  end
+
+  local close_opts = { buffer = buf, desc = 'Close DAP floating window without hijacking `q` macros' }
+
+  -- Use <Esc>/<C-q> so plain `q` remains free for starting macro recording.
+  vim.keymap.set('n', '<Esc>', close_floating, close_opts)
+  vim.keymap.set('n', '<C-q>', close_floating, close_opts)
 
   return buf, win
 end
