@@ -42,6 +42,22 @@ function M.setup()
     wk.add(with_buffer)
   end
 
+  local function load_neocomposer(module_name)
+    local lazy_ok, lazy = pcall(require, 'lazy')
+    if not lazy_ok then
+      return nil
+    end
+
+    lazy.load { plugins = { 'NeoComposer.nvim' } }
+
+    local ok, module = pcall(require, module_name)
+    if ok then
+      return module
+    end
+
+    return nil
+  end
+
 
   -- Trouble & quickfix bindings
   local function toggle_trouble(mode)
@@ -72,6 +88,32 @@ function M.setup()
   vim.keymap.set('n', '<leader>xq', function()
     toggle_trouble 'quickfix'
   end, { desc = '[x] Trouble quickfix list' })
+
+  vim.keymap.set('n', '<leader>qm', function()
+    local ui = load_neocomposer 'NeoComposer.ui'
+    if ui and ui.toggle_macro_menu then
+      ui.toggle_macro_menu()
+    end
+  end, { desc = '[Q]ueued macros menu' })
+
+  vim.keymap.set('n', '<leader>qe', function()
+    if load_neocomposer 'NeoComposer.ui' then
+      vim.cmd.EditMacros()
+    end
+  end, { desc = '[Q]ueued macros edit buffer' })
+
+  vim.keymap.set('n', '<leader>qd', function()
+    if load_neocomposer 'NeoComposer.macro' then
+      vim.cmd.ToggleDelay()
+    end
+  end, { desc = '[Q]ueued macros toggle delay' })
+
+  vim.keymap.set('n', '<leader>qs', function()
+    local macro = load_neocomposer 'NeoComposer.macro'
+    if macro and macro.halt_macro then
+      macro.halt_macro()
+    end
+  end, { desc = '[Q]ueued macros halt playback' })
 
   vim.api.nvim_create_autocmd('FileType', {
     pattern = 'nim',

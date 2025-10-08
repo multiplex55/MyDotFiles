@@ -100,8 +100,37 @@ return {
           group = '[r]ename',
         },
         {
+          '<leader>q',
+          group = '[q]ueued macros',
+        },
+        {
+          '<leader>qm',
+          desc = '[Q]ueued macros menu',
+          mode = { 'n' },
+        },
+        {
+          '<leader>qe',
+          desc = '[Q]ueued macros edit buffer',
+          mode = { 'n' },
+        },
+        {
+          '<leader>qd',
+          desc = '[Q]ueued macros toggle delay',
+          mode = { 'n' },
+        },
+        {
+          '<leader>qs',
+          desc = '[Q]ueued macros halt playback',
+          mode = { 'n' },
+        },
+        {
           '<leader>s',
           group = '[s]earch',
+        },
+        {
+          '<leader>sm',
+          desc = '[S]earch [M]acros',
+          mode = { 'n' },
         },
         {
           '<leader>w',
