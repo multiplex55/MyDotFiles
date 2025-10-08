@@ -89,6 +89,8 @@ function M.setup()
     toggle_trouble 'quickfix'
   end, { desc = '[x] Trouble quickfix list' })
 
+  -- NeoComposer macro management bindings
+  -- These keymaps lazy-load NeoComposer before interacting with its UI or macro helpers.
   vim.keymap.set('n', '<leader>qm', function()
     local ui = load_neocomposer 'NeoComposer.ui'
     if ui and ui.toggle_macro_menu then
