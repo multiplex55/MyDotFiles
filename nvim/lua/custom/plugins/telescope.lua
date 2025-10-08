@@ -69,6 +69,7 @@ return {
 
       pcall(require('telescope').load_extension, 'session-lens')
       pcall(require('telescope').load_extension, 'macros')
+      pcall(require('telescope').load_extension, 'neoclip')
 
       -- See `:help telescope.builtin`
       local builtin = require 'telescope.builtin'
@@ -153,6 +154,24 @@ return {
       })
 
       vim.keymap.set('n', '<leader>sR', builtin.registers, { desc = '[S]earch Yanks / [R]egisters' })
+      vim.keymap.set('n', '<leader>sy', function()
+        local ok, neoclip = pcall(function()
+          return require('telescope').extensions.neoclip
+        end)
+        if not ok or not neoclip or not neoclip.default then
+          return
+        end
+        neoclip.default()
+      end, { desc = '[S]earch [Y]ank history' })
+      vim.keymap.set('n', '<leader>sY', function()
+        local ok, neoclip = pcall(function()
+          return require('telescope').extensions.neoclip
+        end)
+        if not ok or not neoclip or not neoclip.plus then
+          return
+        end
+        neoclip.plus()
+      end, { desc = '[S]earch system [Y]anks' })
 
       vim.keymap.set('n', '<leader>sS', builtin.lsp_workspace_symbols, { desc = '[S]earch [S]ymbols in workspace' })
       vim.keymap.set('n', '<leader>su', function()

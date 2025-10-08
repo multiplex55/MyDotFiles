@@ -133,6 +133,16 @@ return {
           mode = { 'n' },
         },
         {
+          '<leader>sy',
+          desc = '[S]earch [Y]ank history',
+          mode = { 'n' },
+        },
+        {
+          '<leader>sY',
+          desc = '[S]earch system [Y]anks',
+          mode = { 'n' },
+        },
+        {
           '<leader>w',
           group = '[w]indows',
         },
