@@ -68,6 +68,7 @@ return {
       pcall(require('telescope').load_extension, 'undo')
 
       pcall(require('telescope').load_extension, 'session-lens')
+      pcall(require('telescope').load_extension, 'macros')
 
       -- See `:help telescope.builtin`
       local builtin = require 'telescope.builtin'
@@ -157,6 +158,29 @@ return {
       vim.keymap.set('n', '<leader>su', function()
         require('telescope').extensions.undo.undo()
       end, { desc = '[S]earch [U]ndo history' })
+
+      vim.keymap.set('n', '<leader>sm', function()
+        local lazy_ok, lazy = pcall(require, 'lazy')
+        if lazy_ok then
+          lazy.load { plugins = { 'NeoComposer.nvim' } }
+        end
+
+        local telescope = require 'telescope'
+
+        if not (telescope.extensions and telescope.extensions.macros) then
+          local ok = pcall(telescope.load_extension, 'macros')
+          if not ok then
+            return
+          end
+        end
+
+        local ok, macros = pcall(function()
+          return telescope.extensions.macros
+        end)
+        if ok and macros and macros.macros then
+          macros.macros()
+        end
+      end, { desc = '[S]earch [M]acros' })
     end,
   },
 }
