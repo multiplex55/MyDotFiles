@@ -4,6 +4,14 @@ return {
     dependencies = { 'nvim-tree/nvim-web-devicons' },
     config = function()
       local function macro_recording()
+        local ok, ui = pcall(require, 'NeoComposer.ui')
+        if ok and ui and type(ui.status_recording) == 'function' then
+          local status = ui.status_recording()
+          if status and status ~= '' then
+            return status
+          end
+        end
+
         local recording = vim.fn.reg_recording()
         if recording == nil or recording == '' then
           recording = vim.fn.reg_executing()
@@ -58,11 +66,25 @@ return {
         end
       end
 
+      local macro_group = vim.api.nvim_create_augroup('CustomLualineMacro', { clear = true })
+
+      vim.api.nvim_create_autocmd('User', {
+        group = macro_group,
+        pattern = {
+          'NeoComposerRecordingSet',
+          'NeoComposerPlayingSet',
+          'NeoComposerDelaySet',
+        },
+        callback = refresh_lualine,
+      })
+
       vim.api.nvim_create_autocmd('RecordingEnter', {
+        group = macro_group,
         callback = refresh_lualine,
       })
 
       vim.api.nvim_create_autocmd('RecordingLeave', {
+        group = macro_group,
         callback = function()
           vim.defer_fn(refresh_lualine, 50)
         end,
