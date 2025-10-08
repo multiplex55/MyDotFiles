@@ -48,6 +48,23 @@ floating windows for helper workflows like Koto, Rhai, and AutoHotkey.
 | `gbc` | Toggle a block comment surrounding the current line when supported. |
 | `gc{motion}` | Comment the text covered by the following motion using Treesitter-aware delimiters. |
 
+### Macro management
+
+| Shortcut | Source | Action |
+| --- | --- | --- |
+| `q` | NeoComposer | Toggle macro recording on and off, saving the captured macro when you stop. |
+| `Q` | NeoComposer | Play the queued macro immediately (respecting the delay toggle when enabled). |
+| `cq` | NeoComposer | Halt the currently playing macro loop. |
+| `yq` | NeoComposer | Yank the queued macro into the unnamed, clipboard, and system registers. |
+| `<C-n>` | NeoComposer | Queue the next macro in your stored list. |
+| `<C-p>` | NeoComposer | Queue the previous macro in your stored list. |
+| `<M-q>` | NeoComposer | Toggle the floating macro menu window. |
+| `<leader>qm` | Leader | Toggle the NeoComposer macro menu from the leader macro group. |
+| `<leader>qe` | Leader | Open the editable NeoComposer macro buffer (`:EditMacros`). |
+| `<leader>qd` | Leader | Toggle playback delay for macros (`:ToggleDelay`). |
+| `<leader>qs` | Leader | Halt macro playback via the NeoComposer macro module. |
+| `<leader>sm` | Telescope | Launch the Telescope macros picker for browsing and selecting stored macros. |
+
 ## Installation
 
 ### Install Neovim

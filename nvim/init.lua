@@ -176,6 +176,18 @@ vim.filetype.add {
   extension = { rhai = 'rhai' },
 }
 
+if vim.fn.has 'win32' == 1 then
+  -- use forward slashes on Windows
+  local dll = vim.fn.stdpath 'config' .. '/bin/sqlite3.dll'
+  vim.g.sqlite_clib_path = dll
+
+  -- optional: warn if the file is missing
+  if vim.fn.filereadable(dll) ~= 1 then
+    vim.schedule(function()
+      vim.notify('sqlite3.dll not found at: ' .. dll, vim.log.levels.WARN)
+    end)
+  end
+end
 require('lazy').setup({ {
   import = 'custom.plugins',
 } }, {
@@ -197,7 +209,6 @@ require('lazy').setup({ {
     },
   },
 })
-
 
 -- Move this inside config block to ensure it's called AFTER plugin is loaded
 -- COLOR SCHEME — manually comment/uncomment to select the one you want
