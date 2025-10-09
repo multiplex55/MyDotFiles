@@ -46,7 +46,12 @@ return {
             edit = '<c-e>', -- Insert-mode open entry in a scratch buffer for editing.
             custom = {
               ['<esc>'] = function(prompt_bufnr) -- Allow leaving the picker quickly without editing the entry.
-                require('telescope.actions').close(prompt_bufnr)
+                local actions = require 'telescope.actions'
+                local action_state = require 'telescope.actions.state'
+                local picker = action_state.get_current_picker(prompt_bufnr)
+                if picker then
+                  actions.close(prompt_bufnr)
+                end
               end,
             },
           },
@@ -58,7 +63,12 @@ return {
             edit = 'e', -- Normal-mode edit entry contents.
             custom = {
               ['<esc>'] = function(prompt_bufnr) -- Close the picker when escape is pressed outside edit mode.
-                require('telescope.actions').close(prompt_bufnr)
+                local actions = require 'telescope.actions'
+                local action_state = require 'telescope.actions.state'
+                local picker = action_state.get_current_picker(prompt_bufnr)
+                if picker then
+                  actions.close(prompt_bufnr)
+                end
               end,
             },
           },
