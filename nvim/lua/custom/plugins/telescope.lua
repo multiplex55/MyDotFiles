@@ -68,7 +68,6 @@ return {
       pcall(require('telescope').load_extension, 'undo')
 
       pcall(require('telescope').load_extension, 'session-lens')
-      pcall(require('telescope').load_extension, 'macros')
       pcall(require('telescope').load_extension, 'neoclip')
 
       -- See `:help telescope.builtin`
@@ -173,33 +172,12 @@ return {
         neoclip.plus()
       end, { desc = '[S]earch system [Y]anks' })
 
-      vim.keymap.set('n', '<leader>sS', builtin.lsp_workspace_symbols, { desc = '[S]earch [S]ymbols in workspace' })
+      vim.keymap.set('n', '<leader>sW', builtin.lsp_workspace_symbols, { desc = '[S]earch [W]orkspace symbols' })
       vim.keymap.set('n', '<leader>su', function()
         require('telescope').extensions.undo.undo()
       end, { desc = '[S]earch [U]ndo history' })
 
-      vim.keymap.set('n', '<leader>sm', function()
-        local lazy_ok, lazy = pcall(require, 'lazy')
-        if lazy_ok then
-          lazy.load { plugins = { 'NeoComposer.nvim' } }
-        end
-
-        local telescope = require 'telescope'
-
-        if not (telescope.extensions and telescope.extensions.macros) then
-          local ok = pcall(telescope.load_extension, 'macros')
-          if not ok then
-            return
-          end
-        end
-
-        local ok, macros = pcall(function()
-          return telescope.extensions.macros
-        end)
-        if ok and macros and macros.macros then
-          macros.macros()
-        end
-      end, { desc = '[S]earch [M]acros' })
+      vim.keymap.set('n', '<leader>sS', builtin.lsp_dynamic_workspace_symbols, { desc = '[S]earch dynamic [S]ymbols' })
     end,
   },
 }

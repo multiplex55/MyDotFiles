@@ -19,8 +19,7 @@ return {
       end,
       preview = true, -- Show a floating preview of the entry with syntax highlighting when available.
       default_register = '"', -- Use the unnamed register when pasting (matches hitting `p`).
-      default_register_macros = 'q', -- Default macro register to replay when not explicitly chosen.
-      enable_macro_history = true, -- Track recorded macros alongside regular yanks.
+      enable_macro_history = false, -- Leave macro tracking to NeoComposer.nvim.
       content_spec_column = false, -- Keep the preview window instead of replacing it with metadata columns.
       disable_keycodes_parsing = false, -- Render macros using readable keycodes rather than raw byte sequences.
       dedent_picker_display = true, -- Trim common leading whitespace for cleaner picker entries.
@@ -34,13 +33,8 @@ return {
         move_to_front = true, -- Move pasted entries to the top to reflect their recent use.
         close_telescope = true, -- Close Telescope after pasting since the action is complete.
       },
-      on_replay = {
-        set_reg = true, -- Load the macro into the configured register before replaying.
-        move_to_front = true, -- Move replayed macros to the top so they are easy to rerun.
-        close_telescope = true, -- Close Telescope when a macro is replayed to avoid accidental repeats.
-      },
       on_custom_action = {
-        close_telescope = true, -- Close Telescope after custom actions to match paste/replay behavior.
+        close_telescope = true, -- Close Telescope after custom actions to mirror paste behavior.
       },
       keys = {
         telescope = {
@@ -48,19 +42,25 @@ return {
             select = '<cr>', -- Insert-mode confirm selection.
             paste = '<c-p>', -- Insert-mode paste mapping.
             paste_behind = '<c-k>', -- Insert-mode paste behind cursor.
-            replay = '<c-q>', -- Insert-mode macro replay.
             delete = '<c-d>', -- Insert-mode remove entry.
             edit = '<c-e>', -- Insert-mode open entry in a scratch buffer for editing.
-            custom = {}, -- Insert-mode slot for additional custom actions.
+            custom = {
+              ['<esc>'] = function(prompt_bufnr) -- Allow leaving the picker quickly without editing the entry.
+                require('telescope.actions').close(prompt_bufnr)
+              end,
+            },
           },
           n = {
             select = '<cr>', -- Normal-mode confirm selection.
             paste = 'p', -- Normal-mode paste using the configured default register.
             paste_behind = 'P', -- Normal-mode paste behind the cursor.
-            replay = 'q', -- Normal-mode replay recorded macro.
             delete = 'd', -- Normal-mode delete entry from history.
             edit = 'e', -- Normal-mode edit entry contents.
-            custom = {}, -- Normal-mode slot for additional custom actions.
+            custom = {
+              ['<esc>'] = function(prompt_bufnr) -- Close the picker when escape is pressed outside edit mode.
+                require('telescope.actions').close(prompt_bufnr)
+              end,
+            },
           },
         },
         fzf = {
