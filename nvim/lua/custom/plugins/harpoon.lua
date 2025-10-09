@@ -13,12 +13,12 @@ return {
       vim.keymap.set('n', '<leader>ba', function()
         harpoon:list():add()
       end, {
-        desc = '[b]ookmark [a]dd Harpoon',
+        desc = '[B]ookmarks [A]dd Harpoon',
       })
       vim.keymap.set('n', '<leader>bq', function()
         harpoon.ui:toggle_quick_menu(harpoon:list())
       end, {
-        desc = '[b]ookmark Harpoon [q]uick-menu',
+        desc = '[B]ookmarks Harpoon [Q]uick menu',
       })
 
       -- vim.keymap.set('n', '<C-h>', function()
