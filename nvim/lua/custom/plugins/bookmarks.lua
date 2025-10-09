@@ -23,6 +23,116 @@ return {
       'nvim-telescope/telescope.nvim',
       { 'stevearc/dressing.nvim', optional = true },
     },
+    keys = {
+      {
+        '<leader>bm',
+        function()
+          require('bookmarks').toggle_mark()
+        end,
+        desc = '[B]ookmarks Toggle [M]ark',
+      },
+      {
+        '<leader>bg',
+        function()
+          require('bookmarks').goto_bookmark()
+        end,
+        desc = '[B]ookmarks [G]oto picker',
+      },
+      {
+        '<leader>bl',
+        function()
+          require('bookmarks').bookmark_lists()
+        end,
+        desc = '[B]ookmarks choose [L]ist',
+      },
+      {
+        '<leader>bt',
+        function()
+          require('bookmarks').toggle_treeview()
+        end,
+        desc = '[B]ookmarks [T]ree view',
+      },
+      {
+        '<leader>bn',
+        function()
+          require('bookmarks').goto_next_bookmark()
+        end,
+        desc = '[B]ookmarks [N]ext',
+      },
+      {
+        '<leader>bp',
+        function()
+          require('bookmarks').goto_prev_bookmark()
+        end,
+        desc = '[B]ookmarks [P]revious',
+      },
+      {
+        '<leader>bR',
+        function()
+          local service = require('bookmarks.domain.service')
+          local bookmark = service.find_bookmark_by_location()
+
+          if not bookmark then
+            vim.notify('No bookmark at the current location to remove', vim.log.levels.INFO)
+            return
+          end
+
+          service.remove_bookmark(bookmark.id)
+          require('bookmarks.sign').safe_refresh_signs()
+          pcall(require('bookmarks.tree').refresh)
+        end,
+        desc = '[B]ookmarks [R]emove mark',
+      },
+      {
+        '<leader>bN',
+        function()
+          require('bookmarks').goto_next_list_bookmark()
+        end,
+        desc = '[B]ookmarks [N]ext by list order',
+      },
+      {
+        '<leader>bP',
+        function()
+          require('bookmarks').goto_prev_list_bookmark()
+        end,
+        desc = '[B]ookmarks [P]revious by list order',
+      },
+      {
+        '<leader>bG',
+        function()
+          require('bookmarks').grep_bookmarks()
+        end,
+        desc = '[B]ookmarks [G]rep',
+      },
+      {
+        '<leader>bc',
+        function()
+          require('bookmarks').commands()
+        end,
+        desc = '[B]ookmarks [C]ommands',
+      },
+      {
+        '<leader>bd',
+        function()
+          require('bookmarks').attach_desc()
+        end,
+        desc = '[B]ookmarks attach [D]escription',
+      },
+      {
+        '<leader>bi',
+        function()
+          require('bookmarks').info()
+        end,
+        desc = '[B]ookmarks [I]nfo',
+      },
+      {
+        '<leader>bI',
+        function()
+          require('bookmarks').bookmark_info()
+        end,
+        desc = '[B]ookmarks bookmark [I]nfo',
+      },
+    },
     opts = function()
       local default_config = require('bookmarks.config').default_config
       local opts = vim.deepcopy(default_config)

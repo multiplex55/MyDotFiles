@@ -100,6 +100,11 @@ return {
           group = '[r]ename',
         },
         {
+          '<leader>b',
+          group = '[B]ookmarks',
+          mode = { 'n' },
+        },
+        {
           '<leader>q',
           group = '[q]ueued macros',
         },
