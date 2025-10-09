@@ -160,7 +160,10 @@ return {
         if not ok or not neoclip or not neoclip.default then
           return
         end
-        neoclip.default()
+        neoclip.default({
+          -- Always refresh the unnamed register so `p` uses the picked entry.
+          extra = 'unnamed',
+        })
       end, { desc = '[S]earch [Y]ank history' })
       vim.keymap.set('n', '<leader>sY', function()
         local ok, neoclip = pcall(function()
@@ -169,7 +172,11 @@ return {
         if not ok or not neoclip or not neoclip.plus then
           return
         end
-        neoclip.plus()
+        neoclip.plus({
+          -- Mirror the default picker: update the unnamed register while
+          -- showing system yanks so `p` pastes the chosen entry.
+          extra = 'unnamed',
+        })
       end, { desc = '[S]earch system [Y]anks' })
 
       vim.keymap.set('n', '<leader>sW', builtin.lsp_workspace_symbols, { desc = '[S]earch [W]orkspace symbols' })
