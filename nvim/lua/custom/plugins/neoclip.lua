@@ -18,13 +18,14 @@ return {
         return true
       end,
       preview = true, -- Show a floating preview of the entry with syntax highlighting when available.
-      default_register = '"', -- Use the unnamed register when pasting (matches hitting `p`).
+      default_register = { '"', '+', '*', '0' }, -- Keep unnamed, system, and yank-history registers aligned for `p` pastes.
       enable_macro_history = false, -- Leave macro tracking to NeoComposer.nvim.
       content_spec_column = false, -- Keep the preview window instead of replacing it with metadata columns.
       disable_keycodes_parsing = false, -- Render macros using readable keycodes rather than raw byte sequences.
       dedent_picker_display = true, -- Trim common leading whitespace for cleaner picker entries.
       initial_mode = 'normal', -- Start Telescope picker in normal mode for familiar navigation.
       on_select = {
+        set_reg = true, -- Ensure selecting an entry refreshes the default paste registers for immediate `p` usage.
         move_to_front = true, -- Reorder entries so the selected yank becomes the most recent.
         close_telescope = false, -- Keep Telescope open after selecting so further actions can be taken.
       },
@@ -34,7 +35,7 @@ return {
         close_telescope = true, -- Close Telescope after pasting since the action is complete.
       },
       on_custom_action = {
-        close_telescope = true, -- Close Telescope after custom actions to mirror paste behavior.
+        close_telescope = false, -- Let custom shortcuts decide when to close the picker (needed for the <esc> handler).
       },
       keys = {
         telescope = {
@@ -45,9 +46,11 @@ return {
             delete = '<c-d>', -- Insert-mode remove entry.
             edit = '<c-e>', -- Insert-mode open entry in a scratch buffer for editing.
             custom = {
-              ['<esc>'] = function(prompt_bufnr) -- Allow leaving the picker quickly without editing the entry.
+              ['<esc>'] = function()
+                -- Close the picker gracefully without depending on NeoClip's callback payload.
                 local actions = require 'telescope.actions'
                 local action_state = require 'telescope.actions.state'
+                local prompt_bufnr = vim.api.nvim_get_current_buf()
                 local picker = action_state.get_current_picker(prompt_bufnr)
                 if picker then
                   actions.close(prompt_bufnr)
@@ -62,9 +65,11 @@ return {
             delete = 'd', -- Normal-mode delete entry from history.
             edit = 'e', -- Normal-mode edit entry contents.
             custom = {
-              ['<esc>'] = function(prompt_bufnr) -- Close the picker when escape is pressed outside edit mode.
+              ['<esc>'] = function()
+                -- Close the picker when escape is pressed without relying on prompt metadata from NeoClip.
                 local actions = require 'telescope.actions'
                 local action_state = require 'telescope.actions.state'
+                local prompt_bufnr = vim.api.nvim_get_current_buf()
                 local picker = action_state.get_current_picker(prompt_bufnr)
                 if picker then
                   actions.close(prompt_bufnr)
