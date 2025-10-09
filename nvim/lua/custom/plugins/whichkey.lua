@@ -128,8 +128,23 @@ return {
           group = '[s]earch',
         },
         {
-          '<leader>sm',
-          desc = '[S]earch [M]acros',
+          '<leader>sy',
+          desc = '[S]earch [Y]ank history',
+          mode = { 'n' },
+        },
+        {
+          '<leader>sY',
+          desc = '[S]earch system [Y]anks',
+          mode = { 'n' },
+        },
+        {
+          '<leader>sW',
+          desc = '[S]earch [W]orkspace symbols',
+          mode = { 'n' },
+        },
+        {
+          '<leader>sS',
+          desc = '[S]earch dynamic [S]ymbols',
           mode = { 'n' },
         },
         {
