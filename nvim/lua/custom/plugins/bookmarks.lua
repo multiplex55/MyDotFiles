@@ -67,6 +67,23 @@ return {
         desc = '[B]ookmarks [P]revious',
       },
       {
+        '<leader>bR',
+        function()
+          local service = require('bookmarks.domain.service')
+          local bookmark = service.find_bookmark_by_location()
+
+          if not bookmark then
+            vim.notify('No bookmark at the current location to remove', vim.log.levels.INFO)
+            return
+          end
+
+          service.remove_bookmark(bookmark.id)
+          require('bookmarks.sign').safe_refresh_signs()
+          pcall(require('bookmarks.tree').refresh)
+        end,
+        desc = '[B]ookmarks [R]emove mark',
+      },
+      {
         '<leader>bN',
         function()
           require('bookmarks').goto_next_list_bookmark()

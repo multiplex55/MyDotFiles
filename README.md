@@ -24,6 +24,7 @@ MyDotFiles
 | `<leader>bl` | Choose an alternate bookmark list. |
 | `<leader>bt` | Toggle the bookmark tree view. |
 | `<leader>bn` / `<leader>bp` | Jump to the next or previous bookmark in the current buffer. |
+| `<leader>bR` | Remove the bookmark at the current location. |
 | `<leader>bN` / `<leader>bP` | Jump to the next or previous bookmark following list order. |
 | `<leader>bG` | Search across bookmarks with Telescope. |
 | `<leader>bc` | Access bookmark command shortcuts. |
