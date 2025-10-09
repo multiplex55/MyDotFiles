@@ -331,7 +331,7 @@ function M.setup()
   --Sessions Saving
   -- Manual session controls
   vim.keymap.set('n', '<leader>ssm', ':SessionSave<space>', { desc = '[s]ession [s]ave [M]anual Save' })
-  vim.keymap.set('n', '<leader>ssr', ':SessionRestore<space>', { desc = '[s]ession [s]ave [R]estore' })
+  vim.keymap.set('n', '<leader>ssr', ':AutoSession restore<space>', { desc = '[s]ession AutoSession [R]estore' })
   vim.keymap.set('n', '<leader>ssd', ':SessionDelete<space>', { desc = '[s]ession [s]ave [D]elete' })
   --Theme Switching
   vim.keymap.set('n', '<leader>Ut', function()
