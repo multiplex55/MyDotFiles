@@ -138,8 +138,18 @@ return {
         },
       })
 
+      local cmdline_mapping = cmp.mapping.preset.cmdline()
+      cmdline_mapping['<CR>'] = cmp.mapping(function(fallback)
+        if cmp.visible() and #cmp.get_entries() == 1 then
+          cmp.confirm { select = true }
+        else
+          fallback()
+        end
+      end, { 'c' })
+
       cmp.setup.cmdline(':', {
-        mapping = cmp.mapping.preset.cmdline(),
+        mapping = cmdline_mapping,
+        preselect = cmp.PreselectMode.Item,
         sources = cmp.config.sources({
           { name = 'path' },
         }, {
