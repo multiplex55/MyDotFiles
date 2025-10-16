@@ -1,25 +1,3 @@
-local function tabscope_is_enabled()
-  local ok, spec = pcall(require, 'custom.plugins.tabscope')
-  if not ok then
-    return false
-  end
-
-  local enabled = spec.enabled
-  if enabled == nil then
-    return true
-  end
-
-  if type(enabled) == 'function' then
-    local success, value = pcall(enabled, spec)
-    if not success then
-      return false
-    end
-    return not not value
-  end
-
-  return not not enabled
-end
-
 return {
   { -- Useful plugin to show you pending keybinds.
     'folke/which-key.nvim',
@@ -182,24 +160,6 @@ return {
         {
           '<leader>w',
           group = '[w]indows',
-        },
-        {
-          '<leader>wb',
-          group = '[w]indows tab-local buffers',
-          mode = { 'n' },
-          cond = tabscope_is_enabled,
-        },
-        {
-          '<leader>wbr',
-          desc = '[w]indows TabScope remove tab-local buffer',
-          mode = { 'n' },
-          cond = tabscope_is_enabled,
-        },
-        {
-          '<leader>wbd',
-          desc = '[w]indows TabScope debug tab-local buffers',
-          mode = { 'n' },
-          cond = tabscope_is_enabled,
         },
         {
           '<leader>G',
