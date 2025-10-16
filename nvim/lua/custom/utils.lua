@@ -190,4 +190,137 @@ M.switch_colorscheme = function()
     })
     :find()
 end
+r
+
+-- Edgy helpers
+local function plugin_enabled(name)
+  local ok_config, Config = pcall(require, 'lazy.core.config')
+  if not ok_config or not Config.plugins then
+    return false
+  end
+
+  local plugin = Config.plugins[name]
+  if not plugin then
+    return false
+  end
+
+  return plugin.enabled ~= false
+end
+
+local function ensure_edgy_loaded()
+  if not M.is_edgy_enabled() then
+    return false
+  end
+
+  local ok_lazy, lazy = pcall(require, 'lazy')
+  if ok_lazy then
+    lazy.load { plugins = { 'edgy.nvim' } }
+  end
+
+  return true
+end
+
+function M.is_edgy_enabled()
+  return plugin_enabled('edgy.nvim')
+end
+
+---@param opts {ft?: string, filter?: fun(win: any): boolean, open?: fun(), focus_after?: boolean?}?
+---@return boolean handled
+function M.focus_edgy_view(opts)
+  opts = opts or {}
+
+  if not ensure_edgy_loaded() then
+    return false
+  end
+
+  local ok_config, Config = pcall(require, 'edgy.config')
+  if not ok_config or not Config.layout then
+    return false
+  end
+
+  for _, edgebar in pairs(Config.layout) do
+    for _, win in ipairs(edgebar.wins) do
+      local view = win.view
+      if view and ((opts.ft and view.ft == opts.ft) or (opts.filter and opts.filter(win))) then
+        if not win.visible then
+          win:show(true)
+        end
+        win:focus()
+        return true
+      end
+    end
+  end
+
+  if opts.open then
+    opts.open()
+    vim.schedule(function()
+      M.focus_edgy_view(opts)
+    end)
+    return true
+  end
+
+  return false
+end
+
+---@param opts {ft?: string, filter?: fun(win: any): boolean, open?: fun(), close?: fun(), focus_after?: boolean?}?
+---@return boolean handled
+function M.toggle_edgy_view(opts)
+  opts = opts or {}
+
+  if not ensure_edgy_loaded() then
+    return false
+  end
+
+  local ok_config, Config = pcall(require, 'edgy.config')
+  if not ok_config or not Config.layout then
+    return false
+  end
+
+  local found = false
+  for _, edgebar in pairs(Config.layout) do
+    for _, win in ipairs(edgebar.wins) do
+      local view = win.view
+      if view and ((opts.ft and view.ft == opts.ft) or (opts.filter and opts.filter(win))) then
+        found = true
+        local should_focus = opts.focus_after ~= false
+        if win.visible then
+          should_focus = false
+          if opts.close then
+            opts.close()
+          else
+            win:toggle()
+          end
+        else
+          if opts.open then
+            opts.open()
+          else
+            win:show(true)
+          end
+        end
+
+        if should_focus then
+          vim.schedule(function()
+            M.focus_edgy_view(opts)
+          end)
+        end
+
+        return true
+      end
+    end
+  end
+
+  if not found and opts.open then
+    opts.open()
+    if opts.focus_after ~= false then
+      vim.schedule(function()
+        M.focus_edgy_view(opts)
+      end)
+    end
+    return true
+  end
+
+  return found
+end
+
+
 return M
