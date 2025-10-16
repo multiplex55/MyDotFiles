@@ -190,7 +190,6 @@ M.switch_colorscheme = function()
     })
     :find()
 end
-r
 
 -- Edgy helpers
 local function plugin_enabled(name)
@@ -221,7 +220,7 @@ local function ensure_edgy_loaded()
 end
 
 function M.is_edgy_enabled()
-  return plugin_enabled('edgy.nvim')
+  return plugin_enabled 'edgy.nvim'
 end
 
 ---@param opts {ft?: string, filter?: fun(win: any): boolean, open?: fun(), focus_after?: boolean?}?
@@ -321,6 +320,5 @@ function M.toggle_edgy_view(opts)
 
   return found
 end
-
 
 return M
