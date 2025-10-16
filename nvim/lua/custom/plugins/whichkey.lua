@@ -157,16 +157,16 @@ return {
           group = '[w]indows',
         },
         {
+          '<leader>wb',
+          group = '[w]indow [b]uffers',
+        },
+        {
           '<leader>G',
           group = '[G]it',
         },
         {
-          '<leader>w',
-          group = '[w]indow',
-        },
-        {
           '<leader>t',
-          group = '[t]abs and Toggle',
+          group = '[t]abs & toggles (duplicate layout)',
         },
         {
           '<leader>x',

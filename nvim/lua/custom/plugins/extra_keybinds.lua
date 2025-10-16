@@ -279,13 +279,111 @@ function M.setup()
     return require 'winshift'
   end
 
+  local function duplicate_current_tab()
+    local current_win = vim.api.nvim_get_current_win()
+
+    local function capture_layout(node)
+      local kind = node[1]
+      if kind == 'leaf' then
+        local winid = node[2]
+        local buf = vim.api.nvim_win_get_buf(winid)
+        local cursor = vim.api.nvim_win_get_cursor(winid)
+        local view = vim.api.nvim_win_call(winid, function()
+          return vim.fn.winsaveview()
+        end)
+
+        return {
+          type = 'leaf',
+          buf = buf,
+          cursor = cursor,
+          view = view,
+          focused = winid == current_win,
+        }
+      end
+
+      local children = {}
+      for index, child in ipairs(node[2]) do
+        children[index] = capture_layout(child)
+      end
+
+      return {
+        type = kind,
+        children = children,
+      }
+    end
+
+    local function restore_layout(snapshot, win)
+      if snapshot.type == 'leaf' then
+        if vim.api.nvim_buf_is_valid(snapshot.buf) then
+          vim.api.nvim_win_set_buf(win, snapshot.buf)
+        end
+
+        if snapshot.cursor then
+          pcall(vim.api.nvim_win_set_cursor, win, snapshot.cursor)
+        end
+
+        if snapshot.view then
+          vim.api.nvim_win_call(win, function()
+            vim.fn.winrestview(snapshot.view)
+          end)
+        end
+
+        return {
+          first = win,
+          last = win,
+          focus = snapshot.focused and win or nil,
+        }
+      end
+
+      vim.api.nvim_set_current_win(win)
+
+      local split_cmd = snapshot.type == 'row' and 'rightbelow vsplit' or 'belowright split'
+      local child_wins = { win }
+      local last_created = win
+      for index = 2, #snapshot.children do
+        vim.api.nvim_set_current_win(last_created)
+        vim.cmd(split_cmd)
+        last_created = vim.api.nvim_get_current_win()
+        child_wins[index] = last_created
+      end
+
+      local focus_win
+      local last_win = child_wins[#child_wins]
+      for index, child in ipairs(snapshot.children) do
+        local result = restore_layout(child, child_wins[index])
+        if result.focus then
+          focus_win = result.focus
+        end
+        last_win = result.last
+      end
+
+      return {
+        first = child_wins[1],
+        last = last_win,
+        focus = focus_win,
+      }
+    end
+
+    local layout_snapshot = capture_layout(vim.fn.winlayout())
+
+    vim.cmd 'tabnew'
+
+    local restored = restore_layout(layout_snapshot, vim.api.nvim_get_current_win())
+
+    if restored.focus and vim.api.nvim_win_is_valid(restored.focus) then
+      vim.api.nvim_set_current_win(restored.focus)
+    end
+
+    vim.cmd 'wincmd ='
+  end
+
   -- WinShift integration for advanced rearranging
   vim.keymap.set('n', '<leader>wm', function()
     winshift().cmd_winshift()
   end, { desc = '[w]indows WinShift [m]ove mode (q/Esc to exit)' })
   -- Split window
   vim.keymap.set('n', '<leader>wv', '<cmd>vsplit<cr>', { desc = '[w]indows [V]ertical Split' })
-  vim.keymap.set('n', '<leader>wb', '<cmd>split<cr>', { desc = '[w]indows Horizontal Split' })
+  vim.keymap.set('n', '<leader>wh', '<cmd>split<cr>', { desc = '[w]indows [H]orizontal Split' })
   -- Window actions
   vim.keymap.set('n', '<leader>we', '<C-w>=', { desc = '[w]indows Equalize Splits' })
   vim.keymap.set('n', '<leader>wq', '<cmd>q<cr>', { desc = '[w]indows Close Split' })
@@ -306,28 +404,30 @@ function M.setup()
   vim.keymap.set('n', '<Tab>', '<cmd>BufferNext<cr>', { desc = '[t]ab Next' })
   vim.keymap.set('n', '<S-Tab>', '<cmd>BufferPrevious<cr>', { desc = '[t]ab Previous' })
   -- Buffer reordering
-  vim.keymap.set('n', '<leader>tm', '<cmd>BufferMoveNext<cr>', { desc = '[t]ab Move right' })
-  vim.keymap.set('n', '<leader>tM', '<cmd>BufferMovePrevious<cr>', { desc = '[t]ab Move left' })
+  vim.keymap.set('n', '<leader>wbm', '<cmd>BufferMoveNext<cr>', { desc = '[W]indow [B]uffer Move right' })
+  vim.keymap.set('n', '<leader>wbM', '<cmd>BufferMovePrevious<cr>', { desc = '[W]indow [B]uffer Move left' })
   -- Buffer pin/unpin
-  vim.keymap.set('n', '<leader>tp', '<cmd>BufferPin<cr>', { desc = '[t]ab [P]in' })
+  vim.keymap.set('n', '<leader>wbp', '<cmd>BufferPin<cr>', { desc = '[W]indow [B]uffer [P]in' })
   -- Buffer closing
-  vim.keymap.set('n', '<leader>tq', '<cmd>BufferClose<cr>', { desc = '[t]ab [Q]uit' })
-  vim.keymap.set('n', '<leader>to', '<cmd>BufferCloseAllButCurrent<cr>', { desc = '[t]ab Close [O]thers' })
-  vim.keymap.set('n', '<leader>tl', '<cmd>BufferCloseBuffersLeft<cr>', { desc = '[t]ab Close Left' })
-  vim.keymap.set('n', '<leader>tr', '<cmd>BufferCloseBuffersRight<cr>', { desc = '[t]ab Close Right' })
+  vim.keymap.set('n', '<leader>wbq', '<cmd>BufferClose<cr>', { desc = '[W]indow [B]uffer [Q]uit' })
+  vim.keymap.set('n', '<leader>wbo', '<cmd>BufferCloseAllButCurrent<cr>', { desc = '[W]indow [B]uffer Close [O]thers' })
+  vim.keymap.set('n', '<leader>wbl', '<cmd>BufferCloseBuffersLeft<cr>', { desc = '[W]indow [B]uffer Close Left' })
+  vim.keymap.set('n', '<leader>wbr', '<cmd>BufferCloseBuffersRight<cr>', { desc = '[W]indow [B]uffer Close Right' })
   -- Buffer picking
-  vim.keymap.set('n', '<leader>tt', '<cmd>BufferPick<cr>', { desc = '[t]ab Pick (letter select)' })
+  vim.keymap.set('n', '<leader>wbt', '<cmd>BufferPick<cr>', { desc = '[W]indow [B]uffer Pick (letter select)' })
   -- Buffer ordering (sorting)
-  vim.keymap.set('n', '<leader>tsd', '<cmd>BufferOrderByDirectory<cr>', { desc = '[t]ab Sort by [D]irectory' })
-  vim.keymap.set('n', '<leader>tsl', '<cmd>BufferOrderByLanguage<cr>', { desc = '[t]ab Sort by [L]anguage' })
+  vim.keymap.set('n', '<leader>wbsd', '<cmd>BufferOrderByDirectory<cr>', { desc = '[W]indow [B]uffer [S]ort by [D]irectory' })
+  vim.keymap.set('n', '<leader>wbsl', '<cmd>BufferOrderByLanguage<cr>', { desc = '[W]indow [B]uffer [S]ort by [L]anguage' })
   -- Create a new tab
   vim.keymap.set('n', '<leader>tn', '<cmd>tabnew<cr>', { desc = '[t]ab [N]ew' })
   -- Close a tab
   vim.keymap.set('n', '<leader>tc', '<cmd>tabclose<cr>', { desc = '[t]ab [c]lose' })
   -- Soft delete (BufferDelete plugin optional, or close)
-  vim.keymap.set('n', '<leader>td', '<cmd>bdelete<cr>', { desc = '[t]ab [D]elete Buffer' })
+  vim.keymap.set('n', '<leader>wbd', '<cmd>bdelete<cr>', { desc = '[W]indow [B]uffer [D]elete' })
   -- Force delete (for when buffers hang)
-  vim.keymap.set('n', '<leader>tD', '<cmd>bdelete!<cr>', { desc = '[t]ab [D]elete Force' })
+  vim.keymap.set('n', '<leader>wbD', '<cmd>bdelete!<cr>', { desc = '[W]indow [B]uffer Delete Force' })
+  -- Duplicate tab layout
+  vim.keymap.set('n', '<leader>tD', duplicate_current_tab, { desc = '[T]ab [D]uplicate layout' })
   --Sessions Saving
   -- Manual session controls
   vim.keymap.set('n', '<leader>ssm', ':SessionSave<space>', { desc = '[s]ession [s]ave [M]anual Save' })
