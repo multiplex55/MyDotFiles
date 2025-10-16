@@ -20,6 +20,7 @@ return {
       },
       { 'nvim-telescope/telescope-ui-select.nvim' }, -- Useful for getting pretty icons, but requires a Nerd Font.
       'debugloop/telescope-undo.nvim',
+      'LukasPietzschmann/telescope-tabs',
       {
         'nvim-tree/nvim-web-devicons',
         enabled = vim.g.have_nerd_font,
@@ -62,10 +63,13 @@ return {
         },
       }
 
+      require('telescope-tabs').setup {}
+
       -- Enable Telescope extensions if they are installed
       pcall(require('telescope').load_extension, 'fzf')
       pcall(require('telescope').load_extension, 'ui-select')
       pcall(require('telescope').load_extension, 'undo')
+      pcall(require('telescope').load_extension, 'telescope-tabs')
 
       pcall(require('telescope').load_extension, 'session-lens')
       pcall(require('telescope').load_extension, 'neoclip')
@@ -84,6 +88,9 @@ return {
       vim.keymap.set('n', '<leader>st', vim.cmd.Telescope, {
         desc = '[S]earch [S]elect Telescope',
       })
+      vim.keymap.set('n', '<leader>sT', function()
+        require('telescope-tabs').list_tabs()
+      end, { desc = '[S]earch [T]abs' })
       vim.keymap.set('n', '<leader>sw', builtin.grep_string, {
         desc = '[S]earch current [W]ord',
       })
