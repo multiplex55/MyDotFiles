@@ -133,6 +133,11 @@ return {
           group = '[s]earch',
         },
         {
+          '<leader>sT',
+          desc = '[S]earch [T]abs',
+          mode = { 'n' },
+        },
+        {
           '<leader>sy',
           desc = '[S]earch [Y]ank history',
           mode = { 'n' },
