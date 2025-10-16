@@ -161,6 +161,30 @@ return {
           group = '[w]indow [b]uffers',
         },
         {
+          '<leader>wbR',
+          desc = '[w]indow [b]uffer remove from tab-local list (TabScope)',
+          mode = { 'n' },
+          cond = function()
+            local ok, Config = pcall(require, 'lazy.core.config')
+            if not ok or not Config.plugins then
+              return false
+            end
+            return Config.plugins['tabscope.nvim'] ~= nil
+          end,
+        },
+        {
+          '<leader>wbT',
+          desc = '[w]indow [b]uffer TabScope debug info (TabScope)',
+          mode = { 'n' },
+          cond = function()
+            local ok, Config = pcall(require, 'lazy.core.config')
+            if not ok or not Config.plugins then
+              return false
+            end
+            return Config.plugins['tabscope.nvim'] ~= nil
+          end,
+        },
+        {
           '<leader>G',
           group = '[G]it',
         },
