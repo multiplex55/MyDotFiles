@@ -48,7 +48,20 @@ return {
       {
         '<leader>bt',
         function()
-          require('bookmarks').toggle_treeview()
+          local utils = require 'custom.utils'
+          local function toggle()
+            require('bookmarks').toggle_treeview()
+          end
+
+          if utils.toggle_edgy_view {
+            ft = 'BookmarksTree',
+            open = toggle,
+            close = toggle,
+          } then
+            return
+          end
+
+          toggle()
         end,
         desc = '[B]ookmarks [T]ree view',
       },
@@ -163,6 +176,12 @@ return {
       mark_sign.line_bg = nil
 
       opts.signs.mark = mark_sign
+
+      local utils = require 'custom.utils'
+      if utils.is_edgy_enabled() then
+        opts.treeview = opts.treeview or {}
+        opts.treeview.window_split_dimension = 1
+      end
 
       return opts
     end,

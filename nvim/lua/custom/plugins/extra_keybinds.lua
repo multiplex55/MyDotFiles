@@ -250,6 +250,22 @@ function M.setup()
     require('neotest').run.run { strategy = 'dap' }
   end, { desc = '[C]ode [T]est [D]ebug via DAP' })
   vim.keymap.set('n', '<leader>cts', function()
+    local utils = require 'custom.utils'
+    local function open()
+      require('neotest').summary.open()
+    end
+    local function close()
+      require('neotest').summary.close()
+    end
+
+    if utils.toggle_edgy_view {
+      ft = 'neotest-summary',
+      open = open,
+      close = close,
+    } then
+      return
+    end
+
     require('neotest').summary.toggle()
   end, { desc = '[C]ode [T]est [S]ummary toggle' })
   vim.keymap.set('n', '<leader>ctl', function()
