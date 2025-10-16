@@ -2,6 +2,28 @@ local M = {}
 
 local did_setup = false
 
+local function is_tabscope_enabled()
+  local ok, spec = pcall(require, 'custom.plugins.tabscope')
+  if not ok then
+    return false
+  end
+
+  local enabled = spec.enabled
+  if enabled == nil then
+    return true
+  end
+
+  if type(enabled) == 'function' then
+    local success, value = pcall(enabled, spec)
+    if not success then
+      return false
+    end
+    return not not value
+  end
+
+  return not not enabled
+end
+
 function M.setup()
   if did_setup then
     return
@@ -56,6 +78,30 @@ function M.setup()
     end
 
     return nil
+  end
+
+  local tabscope_available = is_tabscope_enabled()
+
+  local function with_tabscope(fn)
+    if not tabscope_available then
+      return false
+    end
+
+    local lazy_ok, lazy = pcall(require, 'lazy')
+    if lazy_ok then
+      lazy.load { plugins = { 'tabscope.nvim' } }
+    end
+
+    local ok, tabscope = pcall(require, 'tabscope')
+    if not ok then
+      return false
+    end
+
+    if fn then
+      return fn(tabscope)
+    end
+
+    return true
   end
 
 
@@ -285,7 +331,41 @@ function M.setup()
   end, { desc = '[w]indows WinShift [m]ove mode (q/Esc to exit)' })
   -- Split window
   vim.keymap.set('n', '<leader>wv', '<cmd>vsplit<cr>', { desc = '[w]indows [V]ertical Split' })
-  vim.keymap.set('n', '<leader>wb', '<cmd>split<cr>', { desc = '[w]indows Horizontal Split' })
+  vim.keymap.set('n', '<leader>wh', '<cmd>split<cr>', { desc = '[w]indows Horizontal Split' })
+
+  if tabscope_available then
+    local function remove_tab_buffer()
+      with_tabscope(function(tabscope)
+        tabscope.remove_tab_buffer()
+      end)
+    end
+
+    local function open_tabscope_debug()
+      with_tabscope(function()
+        local ok, err = pcall(vim.cmd.TabScopeDebug)
+        if not ok then
+          vim.notify(
+            'TabScopeDebug command is unavailable: ' .. err,
+            vim.log.levels.WARN,
+            { title = 'TabScope' }
+          )
+        end
+      end)
+    end
+
+    vim.keymap.set(
+      'n',
+      '<leader>wbr',
+      remove_tab_buffer,
+      { desc = '[w]indows TabScope remove tab-local buffer' }
+    )
+    vim.keymap.set(
+      'n',
+      '<leader>wbd',
+      open_tabscope_debug,
+      { desc = '[w]indows TabScope debug tab-local buffers' }
+    )
+  end
   -- Window actions
   vim.keymap.set('n', '<leader>we', '<C-w>=', { desc = '[w]indows Equalize Splits' })
   vim.keymap.set('n', '<leader>wq', '<cmd>q<cr>', { desc = '[w]indows Close Split' })
