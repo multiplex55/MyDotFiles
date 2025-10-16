@@ -314,18 +314,35 @@ function M.setup()
 
     local function restore_layout(snapshot, win)
       if snapshot.type == 'leaf' then
+        local is_terminal = false
+
         if vim.api.nvim_buf_is_valid(snapshot.buf) then
-          vim.api.nvim_win_set_buf(win, snapshot.buf)
+          local ok_buftype, buftype = pcall(vim.api.nvim_buf_get_option, snapshot.buf, 'buftype')
+          if ok_buftype and buftype == 'terminal' then
+            is_terminal = true
+            local previous_win = vim.api.nvim_get_current_win()
+            if vim.api.nvim_win_is_valid(win) then
+              vim.api.nvim_set_current_win(win)
+              vim.cmd 'terminal'
+            end
+            if vim.api.nvim_win_is_valid(previous_win) then
+              vim.api.nvim_set_current_win(previous_win)
+            end
+          else
+            pcall(vim.api.nvim_win_set_buf, win, snapshot.buf)
+          end
         end
 
-        if snapshot.cursor then
-          pcall(vim.api.nvim_win_set_cursor, win, snapshot.cursor)
-        end
+        if not is_terminal then
+          if snapshot.cursor then
+            pcall(vim.api.nvim_win_set_cursor, win, snapshot.cursor)
+          end
 
-        if snapshot.view then
-          vim.api.nvim_win_call(win, function()
-            vim.fn.winrestview(snapshot.view)
-          end)
+          if snapshot.view then
+            vim.api.nvim_win_call(win, function()
+              vim.fn.winrestview(snapshot.view)
+            end)
+          end
         end
 
         return {
