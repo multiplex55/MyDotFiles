@@ -58,6 +58,35 @@ function M.setup()
     return nil
   end
 
+  local function is_tabscope_available()
+    local ok_config, Config = pcall(require, 'lazy.core.config')
+    if not ok_config or not Config.plugins then
+      return false
+    end
+
+    return Config.plugins['tabscope.nvim'] ~= nil
+  end
+
+  local function with_tabscope(fn)
+    local lazy_ok, lazy = pcall(require, 'lazy')
+    if not lazy_ok then
+      return
+    end
+
+    if not is_tabscope_available() then
+      return
+    end
+
+    lazy.load { plugins = { 'tabscope.nvim' } }
+
+    local ok, tabscope = pcall(require, 'tabscope')
+    if not ok then
+      return
+    end
+
+    return fn(tabscope)
+  end
+
 
   -- Trouble & quickfix bindings
   local function toggle_trouble(mode)
@@ -435,6 +464,21 @@ function M.setup()
   -- Buffer ordering (sorting)
   vim.keymap.set('n', '<leader>wbsd', '<cmd>BufferOrderByDirectory<cr>', { desc = '[W]indow [B]uffer [S]ort by [D]irectory' })
   vim.keymap.set('n', '<leader>wbsl', '<cmd>BufferOrderByLanguage<cr>', { desc = '[W]indow [B]uffer [S]ort by [L]anguage' })
+  if is_tabscope_available() then
+    vim.keymap.set('n', '<leader>wbR', function()
+      with_tabscope(function(tabscope)
+        tabscope.remove_tab_buffer(vim.api.nvim_get_current_buf())
+      end)
+    end, { desc = '[W]indow [B]uffer remove from tab-local list (TabScope)' })
+
+    vim.keymap.set('n', '<leader>wbT', function()
+      with_tabscope(function()
+        if vim.fn.exists(':TabScopeDebug') == 1 then
+          vim.cmd.TabScopeDebug()
+        end
+      end)
+    end, { desc = '[W]indow [B]uffer TabScope debug info (TabScope)' })
+  end
   -- Create a new tab
   vim.keymap.set('n', '<leader>tn', '<cmd>tabnew<cr>', { desc = '[t]ab [N]ew' })
   -- Close a tab
