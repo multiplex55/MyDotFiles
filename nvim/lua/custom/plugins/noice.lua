@@ -23,7 +23,7 @@ return {
         },
         popupmenu = {
           enabled = true,
-          backend = 'cmp',
+          backend = 'cmp', -- confirm behavior customized in cmp config
         },
         presets = {
           command_palette = true,
