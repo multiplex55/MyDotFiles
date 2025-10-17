@@ -325,7 +325,16 @@ function M.setup()
   end
 
   local function duplicate_current_tab()
+    local log_messages = {}
+    local function log(msg)
+      table.insert(log_messages, msg)
+    end
+
+    log('duplicate_current_tab invoked (<leader>tD)')
+
     local current_win = vim.api.nvim_get_current_win()
+
+    local layout_buffers = {}
 
     local function capture_layout(node)
       local kind = node[1]
@@ -356,6 +365,41 @@ function M.setup()
         children = children,
       }
     end
+
+    local function collect_buffers(snapshot)
+      if snapshot.type == 'leaf' then
+        if snapshot.buf and vim.api.nvim_buf_is_valid(snapshot.buf) then
+          layout_buffers[snapshot.buf] = true
+        end
+        return
+      end
+
+      for _, child in ipairs(snapshot.children or {}) do
+        collect_buffers(child)
+      end
+    end
+
+    local tabscope_source_buffers = nil
+    local tabscope_source_tab = vim.api.nvim_get_current_tabpage()
+
+    if not is_tabscope_available() then
+      log('TabScope not available; relying solely on layout snapshot data')
+    end
+
+    with_tabscope(function(ts)
+      tabscope_source_tab = vim.api.nvim_get_current_tabpage()
+      if ts.tab_buffers and ts.tab_buffers.get_current_tab_local_buffers then
+        local ok, buffers = pcall(ts.tab_buffers.get_current_tab_local_buffers)
+        if ok and type(buffers) == 'table' then
+          tabscope_source_buffers = buffers
+          log(('TabScope detected; %d tab-local buffers before duplication'):format(#buffers))
+        else
+          log('TabScope detected but current tab buffers could not be retrieved; falling back to layout snapshot')
+        end
+      else
+        log('TabScope detected without tab buffer API; falling back to layout snapshot')
+      end
+    end)
 
     local function restore_layout(snapshot, win)
       if snapshot.type == 'leaf' then
@@ -427,8 +471,20 @@ function M.setup()
     end
 
     local layout_snapshot = capture_layout(vim.fn.winlayout())
+    collect_buffers(layout_snapshot)
+
+    if tabscope_source_buffers == nil then
+      tabscope_source_buffers = {}
+      for buf, _ in pairs(layout_buffers) do
+        table.insert(tabscope_source_buffers, buf)
+      end
+      log(('TabScope buffer fallback captured %d buffers from layout snapshot'):format(#tabscope_source_buffers))
+    end
 
     vim.cmd 'tabnew'
+
+    local new_tab = vim.api.nvim_get_current_tabpage()
+    log(('Created tab %d from source tab %d'):format(new_tab, tabscope_source_tab))
 
     local restored = restore_layout(layout_snapshot, vim.api.nvim_get_current_win())
 
@@ -437,6 +493,48 @@ function M.setup()
     end
 
     vim.cmd 'wincmd ='
+
+    with_tabscope(function(ts)
+      if not ts.tab_buffers or not ts.tab_buffers.get_current_tab_local_buffers then
+        log('TabScope post-duplication sync skipped: tab buffer manager unavailable')
+        return
+      end
+
+      if ts.tab_buffers._buffers_by_tab == nil then
+        log('TabScope post-duplication sync skipped: internal buffer table missing')
+        return
+      end
+
+      ts.tab_buffers._buffers_by_tab[new_tab] = ts.tab_buffers._buffers_by_tab[new_tab] or {}
+
+      local added = 0
+      for _, buf in ipairs(tabscope_source_buffers) do
+        if vim.api.nvim_buf_is_valid(buf) then
+          ts.tab_buffers._buffers_by_tab[new_tab][buf] = true
+          added = added + 1
+          if ts.tracked_buffers and ts.tracked_buffers.is_tracked and ts.tracked_buffers.is_tracked(buf) and vim.bo[buf].buflisted ~= true then
+            ts.tracked_buffers.show(buf)
+          end
+        end
+      end
+
+      log(('TabScope synchronized %d buffers to tab %d'):format(added, new_tab))
+
+      if ts.listed_buffers and ts.listed_buffers.update then
+        ts.listed_buffers.update()
+        log('TabScope listed buffer manager updated for duplicated tab')
+      end
+    end)
+
+    if #log_messages > 0 then
+      vim.schedule(function()
+        local lines = {}
+        for _, message in ipairs(log_messages) do
+          table.insert(lines, '• ' .. message)
+        end
+        vim.notify(table.concat(lines, '\n'), vim.log.levels.INFO, { title = 'Tab duplicate command path' })
+      end)
+    end
   end
 
   -- WinShift integration for advanced rearranging
@@ -503,7 +601,9 @@ function M.setup()
   vim.keymap.set('n', '<leader>wbd', '<cmd>bdelete<cr>', { desc = '[W]indow [B]uffer [D]elete' })
   -- Force delete (for when buffers hang)
   vim.keymap.set('n', '<leader>wbD', '<cmd>bdelete!<cr>', { desc = '[W]indow [B]uffer Delete Force' })
-  -- Duplicate tab layout
+  -- Duplicate tab layout while preserving buffers in each window.
+  -- The implementation syncs with TabScope so the duplicated tab keeps the same
+  -- tab-local buffer set when the plugin is active.
   vim.keymap.set('n', '<leader>tD', duplicate_current_tab, { desc = '[T]ab [D]uplicate layout' })
   --Sessions Saving
   -- Manual session controls
