@@ -39,6 +39,9 @@ floating windows for helper workflows like Koto, Rhai, and AutoHotkey.
 | `s` / `S` | Trigger `flash.nvim` jump navigation or the Treesitter-powered variant without overriding native `f` / `t` motions. |
 | `<leader>hf` | Start a `flash.nvim` jump while staying alongside the existing Hop leader mappings. |
 | `<leader>hF` | Launch the Treesitter-based Flash search from the hop leader group. |
+| `<leader>tD` | Duplicate the current tab, cloning the entire window layout and buffers using the TabScope integration. |
+
+> See [`tests/manual/tab-duplication.md`](tests/manual/tab-duplication.md) for a quick manual regression checklist covering the tab duplication workflow.
 
 ### Comment toggles
 
