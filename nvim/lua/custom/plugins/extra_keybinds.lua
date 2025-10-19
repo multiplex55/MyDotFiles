@@ -87,6 +87,49 @@ function M.setup()
     return fn(tabscope)
   end
 
+  local function load_plugin(name)
+    local lazy_ok, lazy = pcall(require, 'lazy')
+    if not lazy_ok then
+      return false
+    end
+
+    local ok_config, Config = pcall(require, 'lazy.core.config')
+    if ok_config and Config.plugins and Config.plugins[name] == nil then
+      return false
+    end
+
+    lazy.load { plugins = { name } }
+    return true
+  end
+
+  local function lazy_require(module, plugin)
+    if plugin then
+      load_plugin(plugin)
+    else
+      load_plugin(module)
+    end
+
+    local ok, mod = pcall(require, module)
+    if not ok then
+      return nil
+    end
+
+    return mod
+  end
+
+  local function with_neotest(action)
+    if not load_plugin('neotest') then
+      return
+    end
+
+    local neotest = lazy_require('neotest', 'neotest')
+    if not neotest then
+      return
+    end
+
+    return action(neotest)
+  end
+
 
   -- Trouble & quickfix bindings
   local function toggle_trouble(mode)
@@ -235,65 +278,95 @@ function M.setup()
 
   vim.keymap.set('n', '<leader>ct', '<Nop>', { desc = '[C]ode [T]est' })
   vim.keymap.set('n', '<leader>ctn', function()
-    require('neotest').run.run()
+    with_neotest(function(neotest)
+      neotest.run.run()
+    end)
   end, { desc = '[C]ode [T]est [N]earest' })
   vim.keymap.set('n', '<leader>ctf', function()
-    require('neotest').run.run(vim.fn.expand '%')
+    with_neotest(function(neotest)
+      neotest.run.run(vim.fn.expand '%')
+    end)
   end, { desc = '[C]ode [T]est Current [F]ile' })
   vim.keymap.set('n', '<leader>ctu', function()
-    require('neotest').run.run { suite = true }
+    with_neotest(function(neotest)
+      neotest.run.run { suite = true }
+    end)
   end, { desc = '[C]ode [T]est R[U]n suite' })
   vim.keymap.set('n', '<leader>ctw', function()
-    require('neotest').watch.toggle(vim.fn.expand '%')
+    with_neotest(function(neotest)
+      neotest.watch.toggle(vim.fn.expand '%')
+    end)
   end, { desc = '[C]ode [T]est [W]atch file toggle' })
   vim.keymap.set('n', '<leader>ctd', function()
-    require('neotest').run.run { strategy = 'dap' }
+    with_neotest(function(neotest)
+      neotest.run.run { strategy = 'dap' }
+    end)
   end, { desc = '[C]ode [T]est [D]ebug via DAP' })
   vim.keymap.set('n', '<leader>cts', function()
-    local utils = require 'custom.utils'
-    local function open()
-      require('neotest').summary.open()
-    end
-    local function close()
-      require('neotest').summary.close()
-    end
+    with_neotest(function(neotest)
+      local utils = require 'custom.utils'
+      local function open()
+        neotest.summary.open()
+      end
+      local function close()
+        neotest.summary.close()
+      end
 
-    if utils.toggle_edgy_view {
-      ft = 'neotest-summary',
-      open = open,
-      close = close,
-    } then
-      return
-    end
+      if utils.toggle_edgy_view {
+        ft = 'neotest-summary',
+        open = open,
+        close = close,
+      } then
+        return
+      end
 
-    require('neotest').summary.toggle()
+      neotest.summary.toggle()
+    end)
   end, { desc = '[C]ode [T]est [S]ummary toggle' })
   vim.keymap.set('n', '<leader>ctl', function()
-    require('neotest').run.run_last()
+    with_neotest(function(neotest)
+      neotest.run.run_last()
+    end)
   end, { desc = '[C]ode [T]est Run [L]ast' })
   vim.keymap.set('n', '<leader>ctD', function()
-    require('neotest').run.run_last { strategy = 'dap' }
+    with_neotest(function(neotest)
+      neotest.run.run_last { strategy = 'dap' }
+    end)
   end, { desc = '[C]ode [T]est Run last ([D]AP)' })
   vim.keymap.set('n', '<leader>ctS', function()
-    require('neotest').run.stop()
+    with_neotest(function(neotest)
+      neotest.run.stop()
+    end)
   end, { desc = '[C]ode [T]est [S]top' })
   vim.keymap.set('n', '<leader>cta', function()
-    require('neotest').run.attach()
+    with_neotest(function(neotest)
+      neotest.run.attach()
+    end)
   end, { desc = '[C]ode [T]est [A]ttach to nearest' })
   vim.keymap.set('n', '<leader>cto', function()
-    require('neotest').output.open { enter = true }
+    with_neotest(function(neotest)
+      neotest.output.open { enter = true }
+    end)
   end, { desc = '[C]ode [T]est [O]utput float' })
   vim.keymap.set('n', '<leader>ctL', function()
-    require('neotest').output.open { enter = false, last_run = true }
+    with_neotest(function(neotest)
+      neotest.output.open { enter = false, last_run = true }
+    end)
   end, { desc = '[C]ode [T]est Last output (no focus)' })
   vim.keymap.set('n', '<leader>ctp', function()
-    require('neotest').output_panel.toggle()
+    with_neotest(function(neotest)
+      neotest.output_panel.toggle()
+    end)
   end, { desc = '[C]ode [T]est [P]anel toggle' })
   vim.keymap.set('n', '<leader>ctj', function()
-    require('neotest').jump.next { status = 'failed' }
+    with_neotest(function(neotest)
+      neotest.jump.next { status = 'failed' }
+    end)
   end, { desc = '[C]ode [T]est [J]ump to next fail' })
   vim.keymap.set('n', '<leader>ctk', function()
-    require('neotest').jump.prev { status = 'failed' }
+    with_neotest(function(neotest)
+      neotest.jump.prev { status = 'failed' }
+    end)
   end, { desc = '[C]ode [T]est [K] Jump to previous fail' })
   -- Increase font size
   vim.keymap.set('n', '<C-=>', function()
@@ -314,11 +387,6 @@ function M.setup()
     require('conform').format { async = true, lsp_format = 'fallback' }
   end, { desc = '[F]ormat buffer' })
   -- Window Management
-  local function smart_splits()
-    require('lazy').load { plugins = { 'smart-splits.nvim' } }
-    return require 'smart-splits'
-  end
-
   local function winshift()
     require('lazy').load { plugins = { 'winshift.nvim' } }
     return require 'winshift'
@@ -541,6 +609,26 @@ function M.setup()
   vim.keymap.set('n', '<leader>wm', function()
     winshift().cmd_winshift()
   end, { desc = '[w]indows WinShift [m]ove mode (q/Esc to exit)' })
+  vim.keymap.set('n', '<leader>ws', function()
+    if not load_plugin('smart-splits.nvim') then
+      return
+    end
+    local ok, smart_splits = pcall(require, 'smart-splits')
+    if not ok then
+      return
+    end
+    smart_splits.start_resize_mode()
+  end, { desc = '[w]indow [s]mart resize mode' })
+  vim.keymap.set('n', '<leader>wS', function()
+    if not load_plugin('smart-splits.nvim') then
+      return
+    end
+    local ok, smart_splits = pcall(require, 'smart-splits')
+    if not ok then
+      return
+    end
+    smart_splits.swap_buf_right()
+  end, { desc = '[w]indow [S]wap buffer right' })
   -- Split window
   vim.keymap.set('n', '<leader>wv', '<cmd>vsplit<cr>', { desc = '[w]indows [V]ertical Split' })
   vim.keymap.set('n', '<leader>wh', '<cmd>split<cr>', { desc = '[w]indows [H]orizontal Split' })
@@ -549,12 +637,26 @@ function M.setup()
   vim.keymap.set('n', '<leader>wq', '<cmd>q<cr>', { desc = '[w]indows Close Split' })
   vim.keymap.set('n', '<leader>wx', '<C-w>x', { desc = '[w]indows Swap Splits' })
   vim.keymap.set('n', '<leader>wr', '<C-w>r', { desc = '[w]indows Rotate Splits' })
-  vim.keymap.set('n', '<leader>wo', '<C-w>o', { desc = '[w]indows Close Other Splits' })
-  --window picker
+  vim.keymap.set('n', '<leader>wO', '<C-w>o', { desc = '[w]indows Close [O]ther Splits' })
+  -- Window picker
+  vim.keymap.set('n', '<leader>wo', function()
+    local picker = lazy_require('window-picker', 'window-picker')
+    if not picker then
+      return
+    end
+    local win = picker.pick_window { include_current_win = false }
+    if win then
+      vim.api.nvim_set_current_win(win)
+    end
+  end, { desc = '[w]indow pick [o]ther window' })
   vim.keymap.set('n', '<leader>wp', function()
-    local picked = require('window-picker').pick_window()
-    if picked then
-      vim.api.nvim_set_current_win(picked)
+    local picker = lazy_require('window-picker', 'window-picker')
+    if not picker then
+      return
+    end
+    local win = picker.pick_window()
+    if win then
+      vim.api.nvim_set_current_win(win)
     end
   end, { desc = '[w]indow [p]icker' })
   vim.keymap.set('n', '<leader>wP', function()
@@ -705,48 +807,65 @@ function M.setup()
     require('lazy').load { plugins = { 'mini.diff' } }
     require('mini.diff').open()
   end, { desc = '[G]IT [D]iff Overlay' })
+  local function hop_map(lhs, action, desc, modes)
+    vim.keymap.set(modes or { 'n', 'x', 'o' }, lhs, function()
+      local hop = lazy_require('hop', 'hop.nvim')
+      if not hop then
+        return
+      end
+      action(hop)
+    end, { desc = desc })
+  end
+
   -- HOP - EasyMotion-style navigation
-  vim.keymap.set('n', '<leader>hw', function()
-    require('hop').hint_words()
-  end, { desc = '[h]op [w]ords' })
-  vim.keymap.set('n', '<leader>hl', function()
-    require('hop').hint_lines()
-  end, { desc = '[h]op [l]ines' })
-  vim.keymap.set('n', '<leader>hc', function()
-    require('hop').hint_char1()
-  end, { desc = '[h]op [c]har 1' })
-  vim.keymap.set('n', '<leader>hC', function()
-    require('hop').hint_char2()
-  end, { desc = '[h]op [C]har 2' })
-  -- Hop to word across all windows
-  vim.keymap.set('n', '<leader>hW', function()
-    require('hop').hint_words { multi_windows = true }
-  end, { desc = '[h]op [w]ords (all windows)' })
-  -- Hop to line across all windows
-  vim.keymap.set('n', '<leader>hL', function()
-    require('hop').hint_lines { multi_windows = true }
-  end, { desc = '[h]op [L]ines (all windows)' })
-  -- Hop to pattern (search-like)
-  vim.keymap.set('n', '<leader>hp', function()
-    require('hop').hint_patterns()
-  end, { desc = '[h]op to [p]attern' })
-  -- Visual mode: Hop to word
-  vim.keymap.set('v', '<leader>hW', function()
-    require('hop').hint_words()
-  end, { desc = '[h]op [W]ords (visual)' })
-  -- Yank after hopping to word (insert-mode like behavior)
+  hop_map('<leader>hh', function(hop)
+    hop.hint_char2()
+  end, '[h]op 2-[h]aracters')
+
+  hop_map('<leader>hw', function(hop)
+    hop.hint_words()
+  end, '[h]op [w]ords')
+
+  hop_map('<leader>hl', function(hop)
+    hop.hint_lines_skip_whitespace()
+  end, '[h]op [l]ines')
+
+  hop_map('<leader>hc', function(hop)
+    hop.hint_char1()
+  end, '[h]op [c]har 1')
+
+  hop_map('<leader>hC', function(hop)
+    hop.hint_char2()
+  end, '[h]op [C]har 2')
+
+  hop_map('<leader>hW', function(hop)
+    hop.hint_words { multi_windows = true }
+  end, '[h]op [w]ords (all windows)', 'n')
+
+  hop_map('<leader>hL', function(hop)
+    hop.hint_lines { multi_windows = true }
+  end, '[h]op [L]ines (all windows)', 'n')
+
+  hop_map('<leader>hp', function(hop)
+    hop.hint_patterns()
+  end, '[h]op to [p]attern', 'n')
+
+  hop_map('<leader>hW', function(hop)
+    hop.hint_words()
+  end, '[h]op [W]ords (visual)', 'v')
+
   vim.keymap.set('n', '<leader>hy', function()
-    local hop = require 'hop'
+    local hop = lazy_require('hop', 'hop.nvim')
+    if not hop then
+      return
+    end
     hop.hint_words {
       callback = function(node)
         vim.api.nvim_win_set_cursor(0, { node.line + 1, node.column })
         vim.cmd 'normal! yw'
       end,
     }
-  end, { desc = '[h]op [Y]ank word' })
-  vim.keymap.set('n', '<leader>hh', function()
-    require('hop').hint_anywhere()
-  end, { desc = '[h]op Anyw[h]ere (visual)' })
+  end, { desc = '[h]op [y]ank word' })
   -- Debugging
   vim.keymap.set('n', '<F5>', function()
     require('dap').continue()
@@ -772,19 +891,53 @@ function M.setup()
     vim.cmd 'Lspsaga hover_doc'
   end, { desc = 'Show Hover Doc' })
   -- Overseer keybinds under <leader>o
-  vim.keymap.set('n', '<leader>oo', '<cmd>OverseerToggle<cr>', { desc = '[O]verseer [O]pen Task List' })
-  vim.keymap.set('n', '<leader>or', '<cmd>OverseerRun<cr>', { desc = '[O]verseer [R]un Task' })
-  vim.keymap.set('n', '<leader>ot', '<cmd>OverseerTaskAction<cr>', { desc = '[O]verseer Task Ac[t]ion' })
-  vim.keymap.set('n', '<leader>oa', '<cmd>OverseerQuickAction<cr>', { desc = '[O]verseer [A]ction (Quick)' })
-  vim.keymap.set('n', '<leader>oc', '<cmd>OverseerClearCache<cr>', { desc = '[O]verseer [C]lear Cache' })
-  vim.keymap.set('n', '<leader>os', '<cmd>OverseerSaveBundle<cr>', { desc = '[O]verseer [S]ave Task Bundle' })
-  vim.keymap.set('n', '<leader>ol', '<cmd>OverseerLoadBundle<cr>', { desc = '[O]verseer [L]oad Task Bundle' })
-  vim.keymap.set('n', '<leader>od', '<cmd>OverseerDeleteBundle<cr>', { desc = '[O]verseer [D]elete Task Bundle' })
+  local function run_overseer_command(command)
+    if not load_plugin('overseer.nvim') then
+      return
+    end
+    local ok, err = pcall(vim.cmd, command)
+    if not ok then
+      vim.notify(('Overseer command failed: %s'):format(err), vim.log.levels.ERROR)
+    end
+  end
+
+  vim.keymap.set('n', '<leader>op', function()
+    run_overseer_command 'OverseerTaskAction'
+  end, { desc = '[O]verseer task [p]icker' })
+  vim.keymap.set('n', '<leader>or', function()
+    run_overseer_command 'OverseerRun'
+  end, { desc = '[O]verseer [r]un template' })
+  vim.keymap.set('n', '<leader>oR', function()
+    run_overseer_command 'OverseerQuickAction restart'
+  end, { desc = '[O]verseer [R]estart last task' })
+  vim.keymap.set('n', '<leader>ot', function()
+    run_overseer_command 'OverseerToggle'
+  end, { desc = '[O]verseer [t]oggle list' })
+  vim.keymap.set('n', '<leader>oa', function()
+    run_overseer_command 'OverseerQuickAction'
+  end, { desc = '[O]verseer [a]ction (quick menu)' })
+  vim.keymap.set('n', '<leader>oc', function()
+    run_overseer_command 'OverseerClearCache'
+  end, { desc = '[O]verseer [c]lear cache' })
+  vim.keymap.set('n', '<leader>os', function()
+    run_overseer_command 'OverseerSaveBundle'
+  end, { desc = '[O]verseer [s]ave task bundle' })
+  vim.keymap.set('n', '<leader>ol', function()
+    run_overseer_command 'OverseerLoadBundle'
+  end, { desc = '[O]verseer [l]oad task bundle' })
+  vim.keymap.set('n', '<leader>od', function()
+    run_overseer_command 'OverseerDeleteBundle'
+  end, { desc = '[O]verseer [d]elete task bundle' })
   vim.keymap.set('n', '<leader>oq', function()
-    require('lazy').load { plugins = { 'overseer.nvim' } }
-    require('overseer').open { enter = true, direction = 'bottom' }
-  end, { desc = '[O]verseer [Q]uickfix focus list' })
-  vim.keymap.set('n', '<leader>ob', '<cmd>OverseerBuild<cr>', { desc = '[O]verseer [B]uild Tasks' })
+    local overseer = lazy_require('overseer', 'overseer.nvim')
+    if not overseer then
+      return
+    end
+    overseer.open { enter = true, direction = 'bottom' }
+  end, { desc = '[O]verseer [q]uickfix focus list' })
+  vim.keymap.set('n', '<leader>ob', function()
+    run_overseer_command 'OverseerBuild'
+  end, { desc = '[O]verseer [b]uild tasks' })
   --Telescope file browser
   vim.keymap.set('n', '<space>sb', ':Telescope file_browser path=%":p:h select_buffer=true<CR>', { desc = '[S]earch file [B]rowser' })
   -- Nvim Spectre
