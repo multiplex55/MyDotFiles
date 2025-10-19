@@ -3,7 +3,7 @@ return {
     'folke/snacks.nvim',
     event = 'VimEnter',
     dependencies = {
-      'nvim-telescope/telescope.nvim',
+      { 'nvim-telescope/telescope.nvim', lazy = true },
       'nvim-lua/plenary.nvim',
     },
     opts = {
