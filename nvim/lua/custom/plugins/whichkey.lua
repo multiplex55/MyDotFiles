@@ -100,6 +100,21 @@ return {
           group = '[r]ename',
         },
         {
+          '<leader>t',
+          group = '[t]erminal',
+          mode = { 'n' },
+        },
+        {
+          '<leader>tt',
+          desc = '[t]erminal toggle',
+          mode = { 'n' },
+        },
+        {
+          '<leader>tv',
+          desc = '[t]erminal [v]ertical split',
+          mode = { 'n' },
+        },
+        {
           '<leader>b',
           group = '[B]ookmarks',
           mode = { 'n' },
