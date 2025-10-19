@@ -78,8 +78,27 @@ return {
         group = vim.api.nvim_create_augroup('kickstart-lsp-navic-detach', { clear = true }),
         callback = function(event)
           local ok_navic, navic = pcall(require, 'nvim-navic')
-          if ok_navic then
-            navic.detach(event.buf)
+          if not ok_navic then
+            return
+          end
+
+          local detach = nil
+          if type(navic.detach) == 'function' then
+            detach = navic.detach
+          elseif type(navic.detach_buffer) == 'function' then
+            detach = navic.detach_buffer
+          elseif type(navic.remove_buffer) == 'function' then
+            detach = navic.remove_buffer
+          end
+
+          if detach then
+            pcall(detach, event.buf)
+            return
+          end
+
+          local ok_lib, lib = pcall(require, 'nvim-navic.lib')
+          if ok_lib and type(lib.clear_buffer_data) == 'function' then
+            pcall(lib.clear_buffer_data, event.buf)
           end
         end,
       })
