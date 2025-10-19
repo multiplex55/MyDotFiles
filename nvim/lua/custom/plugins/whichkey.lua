@@ -194,6 +194,17 @@ return {
           group = '[G]it',
         },
         {
+          '<leader>o',
+          group = '[o]verseer tasks',
+          cond = function()
+            local ok, Config = pcall(require, 'lazy.core.config')
+            if not ok or not Config.plugins then
+              return false
+            end
+            return Config.plugins['overseer.nvim'] ~= nil
+          end,
+        },
+        {
           '<leader>t',
           group = '[t]abs & toggles (duplicate layout)',
         },
