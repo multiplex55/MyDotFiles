@@ -158,6 +158,11 @@ return {
           mode = { 'n' },
         },
         {
+          '<leader>sN',
+          desc = '[S]earch [N]avbuddy',
+          mode = { 'n' },
+        },
+        {
           '<leader>w',
           group = '[w]indows',
         },
