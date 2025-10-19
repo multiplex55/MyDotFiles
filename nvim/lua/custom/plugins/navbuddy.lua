@@ -59,6 +59,7 @@ return {
       'neovim/nvim-lspconfig',
     },
     opts = function()
+      local actions = require 'nvim-navbuddy.actions'
       return {
         window = {
           border = 'rounded',
@@ -92,6 +93,13 @@ return {
           auto_attach = true,
         },
         use_default_mappings = true,
+        mappings = {
+          ['<Up>'] = actions.previous_sibling(),
+          ['<Down>'] = actions.next_sibling(),
+          ['<Left>'] = actions.parent(),
+          ['<Right>'] = actions.children(),
+          ['<CR>'] = actions.select(),
+        },
         icons = kind_icons,
       }
     end,
