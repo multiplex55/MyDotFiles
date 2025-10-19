@@ -6,6 +6,9 @@ M.switch_colorscheme = function()
     -- Catppuccin
     'catppuccin',
 
+    -- Rainbow12 palette for vibrant contrast testing
+    'rainbow12',
+
     -- TokyoNight variants
     'tokyonight',
     'tokyonight-night',
