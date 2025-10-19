@@ -6,6 +6,9 @@ M.switch_colorscheme = function()
     -- Catppuccin
     'catppuccin',
 
+    -- Vague
+    'vague',
+
     -- Rainbow12 palette for vibrant contrast testing
     'rainbow12',
 
@@ -70,6 +73,31 @@ M.switch_colorscheme = function()
     'sweetie',
     'ayu-mirage',
 
+    -- Base16 Black Metal variants
+    'base16-black-metal',
+    'base16-black-metal-bathory',
+    'base16-black-metal-burzum',
+    'base16-black-metal-dark-funeral',
+    'base16-black-metal-gorgoroth',
+    'base16-black-metal-immortal',
+    'base16-black-metal-khold',
+    'base16-black-metal-marduk',
+    'base16-black-metal-mayhem',
+    'base16-black-metal-nile',
+    'base16-black-metal-venom',
+
+    -- Jellybeans palettes
+    'jellybeans',
+    'jellybeans-default',
+    'jellybeans-light',
+    'jellybeans-muted',
+    'jellybeans-muted-light',
+    'jellybeans-mono',
+    'jellybeans-mono-light',
+
+    -- Sitruuna
+    'sitruuna',
+
     -- Monokai Pro variants
     'monokai-pro',
     'monokai-pro-spectrum',
@@ -81,6 +109,11 @@ M.switch_colorscheme = function()
 
   local original = vim.g.colors_name
 
+  local sorted_themes = vim.deepcopy(themes)
+  table.sort(sorted_themes, function(a, b)
+    return a:lower() < b:lower()
+  end)
+
   require('telescope.pickers')
     .new({
       layout_config = {
@@ -91,7 +124,7 @@ M.switch_colorscheme = function()
       layout_strategy = 'vertical',
     }, {
       prompt_title = '🎨 Switch Colorscheme',
-      finder = require('telescope.finders').new_table { results = themes },
+      finder = require('telescope.finders').new_table { results = sorted_themes },
       sorter = require('telescope.config').values.generic_sorter {},
       attach_mappings = function(prompt_bufnr, map)
         local actions = require 'telescope.actions'

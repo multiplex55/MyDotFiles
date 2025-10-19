@@ -108,6 +108,44 @@ return {
   { 'NTBBloodbath/sweetie.nvim', lazy = true }, -- candy-colored dark
   { 'Shatur/neovim-ayu', lazy = true }, -- ayu-mirage: stylish and dark
 
+  -- Atmospheric minimalism
+  {
+    'vague-theme/vague.nvim',
+    lazy = false,
+    priority = 1000,
+    config = function()
+      require('vague').setup {}
+
+      local original = vim.g.colors_name
+      vim.cmd 'colorscheme vague'
+      if original and original ~= 'vague' then
+        vim.cmd('colorscheme ' .. original)
+      end
+    end,
+  },
+
+  -- Base16 Black Metal variants
+  { 'metalelf0/base16-black-metal-scheme', lazy = true },
+
+  -- Jellybeans palettes
+  {
+    'WTFox/jellybeans.nvim',
+    lazy = true,
+    opts = {
+      palette = 'default',
+      background = 'dark',
+    },
+  },
+
+  -- Sitruuna
+  {
+    'eemed/sitruuna.vim',
+    lazy = true,
+    init = function()
+      vim.g.sitruuna_fzf = 1
+    end,
+  },
+
   -- Monokai Pro
   { 'loctvl842/monokai-pro.nvim', lazy = true },
 }
