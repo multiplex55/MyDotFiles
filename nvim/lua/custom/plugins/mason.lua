@@ -48,6 +48,11 @@ return {
           map('gD', vim.lsp.buf.declaration, '[G]oto [D]eclaration')
 
           local client = vim.lsp.get_client_by_id(event.data.client_id)
+          local ok_navic, navic = pcall(require, 'nvim-navic')
+          if ok_navic and client and client.supports_method(vim.lsp.protocol.Methods.textDocument_documentSymbol) then
+            navic.attach(client, event.buf)
+          end
+
           if client and client.supports_method(vim.lsp.protocol.Methods.textDocument_documentHighlight) then
             local aug = vim.api.nvim_create_augroup('kickstart-lsp-highlight', { clear = false })
             vim.api.nvim_create_autocmd({ 'CursorHold', 'CursorHoldI' }, { buffer = event.buf, group = aug, callback = vim.lsp.buf.document_highlight })
@@ -65,6 +70,16 @@ return {
             map('<leader>th', function()
               vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled { bufnr = event.buf })
             end, '[T]oggle Inlay [H]ints')
+          end
+        end,
+      })
+
+      vim.api.nvim_create_autocmd('LspDetach', {
+        group = vim.api.nvim_create_augroup('kickstart-lsp-navic-detach', { clear = true }),
+        callback = function(event)
+          local ok_navic, navic = pcall(require, 'nvim-navic')
+          if ok_navic then
+            navic.detach(event.buf)
           end
         end,
       })
