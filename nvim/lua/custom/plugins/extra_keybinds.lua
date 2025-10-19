@@ -118,11 +118,11 @@ function M.setup()
   end
 
   local function with_neotest(action)
-    if not load_plugin('nvim-neotest/neotest') then
+    if not load_plugin('neotest') then
       return
     end
 
-    local neotest = lazy_require('neotest', 'nvim-neotest/neotest')
+    local neotest = lazy_require('neotest', 'neotest')
     if not neotest then
       return
     end
