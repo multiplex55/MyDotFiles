@@ -140,16 +140,36 @@ return {
 
       local cmdline_mapping = cmp.mapping.preset.cmdline()
       cmdline_mapping['<CR>'] = cmp.mapping(function(fallback)
-        if cmp.visible() and #cmp.get_entries() == 1 then
-          cmp.confirm { select = true }
+        if cmp.visible() and cmp.get_selected_entry() then
+          cmp.confirm { select = false }
         else
           fallback()
         end
       end, { 'c' })
 
       cmp.setup.cmdline(':', {
+        enabled = function()
+          if vim.fn.getcmdtype() ~= ':' then
+            return true
+          end
+
+          local line = vim.fn.getcmdline()
+          local cmd, rest = line:match('^(%S+)%s*(.*)$')
+          if not cmd then
+            return true
+          end
+
+          if cmd:match('^term') then
+            local arg = rest:gsub('^%s+', '')
+            if #arg < 2 then
+              return false
+            end
+          end
+
+          return true
+        end,
         mapping = cmdline_mapping,
-        preselect = cmp.PreselectMode.Item,
+        preselect = cmp.PreselectMode.None,
         sources = cmp.config.sources({
           { name = 'path' },
         }, {
