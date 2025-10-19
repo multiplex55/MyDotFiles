@@ -19,6 +19,14 @@ floating windows for helper workflows like Koto, Rhai, and AutoHotkey.
 
 ## Custom Keymaps
 
+### Folding defaults
+
+Buffers now start with Treesitter-powered expression folds enabled (`foldmethod=expr`),
+so commands like `zc` and `zo` operate on syntax-aware regions instead of manual markers.
+The default fold level is raised to keep files open on first load, so you can still drill
+into nested sections only when you need them. If you relied on creating manual folds, use
+`zf` to define them per buffer or switch the method back temporarily with `:setlocal foldmethod=manual`.
+
 ### Rust tools
 
 | Shortcut | Action |
