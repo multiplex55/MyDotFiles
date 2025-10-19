@@ -25,13 +25,24 @@ return {
             vim.keymap.set(mode, keys, func, { buffer = event.buf, desc = 'LSP: ' .. desc })
           end
 
-          map('<leader>gd', require('telescope.builtin').lsp_definitions, '[G]oto [D]efinition')
-          map('<leader>gr', require('telescope.builtin').lsp_references, '[G]oto [R]eferences')
-          map('<leader>gI', require('telescope.builtin').lsp_implementations, '[G]oto [I]mplementation')
-          map('<leader>D', require('telescope.builtin').lsp_type_definitions, 'Type [D]efinition')
-          map('<leader>ds', require('telescope.builtin').lsp_document_symbols, '[D]ocument [S]ymbols')
-          map('<leader>sW', require('telescope.builtin').lsp_workspace_symbols, '[S]earch [W]orkspace symbols')
-          map('<leader>sS', require('telescope.builtin').lsp_dynamic_workspace_symbols, '[S]earch dynamic [S]ymbols')
+          local ok, builtin = pcall(require, 'telescope.builtin')
+          if not ok then
+            local lazy_ok, lazy = pcall(require, 'lazy')
+            if lazy_ok then
+              lazy.load { plugins = { 'telescope.nvim' } }
+              ok, builtin = pcall(require, 'telescope.builtin')
+            end
+          end
+
+          if ok then
+            map('<leader>gd', builtin.lsp_definitions, '[G]oto [D]efinition')
+            map('<leader>gr', builtin.lsp_references, '[G]oto [R]eferences')
+            map('<leader>gI', builtin.lsp_implementations, '[G]oto [I]mplementation')
+            map('<leader>D', builtin.lsp_type_definitions, 'Type [D]efinition')
+            map('<leader>ds', builtin.lsp_document_symbols, '[D]ocument [S]ymbols')
+            map('<leader>sW', builtin.lsp_workspace_symbols, '[S]earch [W]orkspace symbols')
+            map('<leader>sS', builtin.lsp_dynamic_workspace_symbols, '[S]earch dynamic [S]ymbols')
+          end
           map('<leader>rn', vim.lsp.buf.rename, '[R]e[n]ame')
           map('<leader>ca', vim.lsp.buf.code_action, '[C]ode [A]ction', { 'n', 'x' })
           map('gD', vim.lsp.buf.declaration, '[G]oto [D]eclaration')
