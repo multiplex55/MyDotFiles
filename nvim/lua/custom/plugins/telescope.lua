@@ -1,7 +1,193 @@
 return {
   { -- Fuzzy Finder (files, lsp, etc)
     'nvim-telescope/telescope.nvim',
-    event = 'VimEnter',
+    cmd = 'Telescope',
+    keys = {
+      {
+        '<leader>sh',
+        function()
+          require('telescope.builtin').help_tags()
+        end,
+        desc = '[S]earch [H]elp',
+      },
+      {
+        '<leader>sk',
+        function()
+          require('telescope.builtin').keymaps()
+        end,
+        desc = '[S]earch [K]eymaps',
+      },
+      {
+        '<leader>sf',
+        function()
+          require('telescope.builtin').find_files()
+        end,
+        desc = '[S]earch [F]iles',
+      },
+      {
+        '<leader>st',
+        '<cmd>Telescope<cr>',
+        desc = '[S]earch [S]elect Telescope',
+      },
+      {
+        '<leader>sT',
+        function()
+          require('telescope-tabs').list_tabs()
+        end,
+        desc = '[S]earch [T]abs',
+      },
+      {
+        '<leader>sw',
+        function()
+          require('telescope.builtin').grep_string()
+        end,
+        desc = '[S]earch current [W]ord',
+      },
+      {
+        '<leader>sg',
+        function()
+          require('telescope.builtin').live_grep()
+        end,
+        desc = '[S]earch by [G]rep',
+      },
+      {
+        '<leader>sG',
+        function()
+          require('telescope.builtin').live_grep {
+            additional_args = function()
+              return { '--no-ignore' }
+            end,
+          }
+        end,
+        desc = '[s]earch [G]rep (ignore)',
+      },
+      {
+        '<leader>se',
+        function()
+          require('telescope.builtin').live_grep {
+            additional_args = function()
+              return { '--no-ignore' }
+            end,
+          }
+        end,
+        desc = '[s]earch grep [e]xact',
+      },
+      {
+        '<leader>sd',
+        function()
+          require('telescope.builtin').diagnostics()
+        end,
+        desc = '[S]earch [D]iagnostics',
+      },
+      {
+        '<leader>s.',
+        function()
+          require('telescope.builtin').oldfiles()
+        end,
+        desc = '[S]earch Recent Files ("." for repeat)',
+      },
+      {
+        '<leader><leader>',
+        function()
+          require('telescope.builtin').buffers()
+        end,
+        desc = '[ ] Find existing buffers',
+      },
+      {
+        '<leader>sq',
+        function()
+          vim.diagnostic.setqflist()
+        end,
+        desc = '[S]earch [Q]uickfix diagnostics (Trouble/Bqf)',
+      },
+      {
+        '<leader>/',
+        function()
+          require('telescope.builtin').current_buffer_fuzzy_find(require('telescope.themes').get_dropdown {
+            winblend = 10,
+            previewer = false,
+          })
+        end,
+        desc = '[/] Fuzzily search in current buffer',
+      },
+      {
+        '<leader>s/',
+        function()
+          require('telescope.builtin').live_grep {
+            grep_open_files = true,
+            prompt_title = 'Live Grep in Open Files',
+          }
+        end,
+        desc = '[S]earch [/] in Open Files',
+      },
+      {
+        '<leader>sn',
+        function()
+          require('telescope.builtin').find_files {
+            cwd = vim.fn.stdpath 'config',
+          }
+        end,
+        desc = '[S]earch [N]eovim files',
+      },
+      {
+        '<leader>sR',
+        function()
+          require('telescope.builtin').registers()
+        end,
+        desc = '[S]earch Yanks / [R]egisters',
+      },
+      {
+        '<leader>sy',
+        function()
+          local ok, neoclip = pcall(function()
+            return require('telescope').extensions.neoclip
+          end)
+          if not ok or not neoclip or not neoclip.default then
+            return
+          end
+          neoclip.default({
+            extra = 'unnamed',
+          })
+        end,
+        desc = '[S]earch [Y]ank history',
+      },
+      {
+        '<leader>sY',
+        function()
+          local ok, neoclip = pcall(function()
+            return require('telescope').extensions.neoclip
+          end)
+          if not ok or not neoclip or not neoclip.plus then
+            return
+          end
+          neoclip.plus({
+            extra = 'unnamed',
+          })
+        end,
+        desc = '[S]earch system [Y]anks',
+      },
+      {
+        '<leader>sW',
+        function()
+          require('telescope.builtin').lsp_workspace_symbols()
+        end,
+        desc = '[S]earch [W]orkspace symbols',
+      },
+      {
+        '<leader>su',
+        function()
+          require('telescope').extensions.undo.undo()
+        end,
+        desc = '[S]earch [U]ndo history',
+      },
+      {
+        '<leader>sS',
+        function()
+          require('telescope.builtin').lsp_dynamic_workspace_symbols()
+        end,
+        desc = '[S]earch dynamic [S]ymbols',
+      },
+    },
     branch = '0.1.x',
     dependencies = {
       'nvim-lua/plenary.nvim',
@@ -75,128 +261,6 @@ return {
       pcall(require('telescope').load_extension, 'neoclip')
 
       -- See `:help telescope.builtin`
-      local builtin = require 'telescope.builtin'
-      vim.keymap.set('n', '<leader>sh', builtin.help_tags, {
-        desc = '[S]earch [H]elp',
-      })
-      vim.keymap.set('n', '<leader>sk', builtin.keymaps, {
-        desc = '[S]earch [K]eymaps',
-      })
-      vim.keymap.set('n', '<leader>sf', builtin.find_files, {
-        desc = '[S]earch [F]iles',
-      })
-      vim.keymap.set('n', '<leader>st', vim.cmd.Telescope, {
-        desc = '[S]earch [S]elect Telescope',
-      })
-      vim.keymap.set('n', '<leader>sT', function()
-        require('telescope-tabs').list_tabs()
-      end, { desc = '[S]earch [T]abs' })
-      vim.keymap.set('n', '<leader>sw', builtin.grep_string, {
-        desc = '[S]earch current [W]ord',
-      })
-      -- Grep Seraching
-      vim.keymap.set('n', '<leader>sg', builtin.live_grep, {
-        desc = '[S]earch by [G]rep',
-      })
-      vim.keymap.set('n', '<leader>sG', function()
-        require('telescope.builtin').live_grep {
-          additional_args = function()
-            return { '--no-ignore' }
-          end,
-        }
-      end, { desc = '[s]earch [G]rep (ignore)' })
-
-      vim.keymap.set('n', '<leader>se', function()
-        require('telescope.builtin').live_grep {
-          additional_args = function()
-            return { '--no-ignore' }
-          end,
-        }
-      end, { desc = '[s]earch grep [e]xact' })
-
-      vim.keymap.set('n', '<leader>sd', builtin.diagnostics, {
-        desc = '[S]earch [D]iagnostics',
-      })
-      vim.keymap.set('n', '<leader>s.', builtin.oldfiles, {
-        desc = '[S]earch Recent Files ("." for repeat)',
-      })
-      vim.keymap.set('n', '<leader>sT', function()
-        require('telescope-tabs').list_tabs()
-      end, {
-        desc = '[S]earch [T]abs',
-      })
-      vim.keymap.set('n', '<leader><leader>', builtin.buffers, {
-        desc = '[ ] Find existing buffers',
-      })
-      -- Diagnostic keymaps
-      vim.keymap.set('n', '<leader>sq', vim.diagnostic.setqflist, {
-        desc = '[S]earch [Q]uickfix diagnostics (Trouble/Bqf)',
-      })
-
-      -- Slightly advanced example of overriding default behavior and theme
-      vim.keymap.set('n', '<leader>/', function()
-        -- You can pass additional configuration to Telescope to change the theme, layout, etc.
-        builtin.current_buffer_fuzzy_find(require('telescope.themes').get_dropdown {
-          winblend = 10,
-          previewer = false,
-        })
-      end, {
-        desc = '[/] Fuzzily search in current buffer',
-      })
-
-      -- It's also possible to pass additional configuration options.
-      --  See `:help telescope.builtin.live_grep()` for information about particular keys
-      vim.keymap.set('n', '<leader>s/', function()
-        builtin.live_grep {
-          grep_open_files = true,
-          prompt_title = 'Live Grep in Open Files',
-        }
-      end, {
-        desc = '[S]earch [/] in Open Files',
-      })
-
-      -- Shortcut for searching your Neovim configuration files
-      vim.keymap.set('n', '<leader>sn', function()
-        builtin.find_files {
-          cwd = vim.fn.stdpath 'config',
-        }
-      end, {
-        desc = '[S]earch [N]eovim files',
-      })
-
-      vim.keymap.set('n', '<leader>sR', builtin.registers, { desc = '[S]earch Yanks / [R]egisters' })
-      vim.keymap.set('n', '<leader>sy', function()
-        local ok, neoclip = pcall(function()
-          return require('telescope').extensions.neoclip
-        end)
-        if not ok or not neoclip or not neoclip.default then
-          return
-        end
-        neoclip.default({
-          -- Always refresh the unnamed register so `p` uses the picked entry.
-          extra = 'unnamed',
-        })
-      end, { desc = '[S]earch [Y]ank history' })
-      vim.keymap.set('n', '<leader>sY', function()
-        local ok, neoclip = pcall(function()
-          return require('telescope').extensions.neoclip
-        end)
-        if not ok or not neoclip or not neoclip.plus then
-          return
-        end
-        neoclip.plus({
-          -- Mirror the default picker: update the unnamed register while
-          -- showing system yanks so `p` pastes the chosen entry.
-          extra = 'unnamed',
-        })
-      end, { desc = '[S]earch system [Y]anks' })
-
-      vim.keymap.set('n', '<leader>sW', builtin.lsp_workspace_symbols, { desc = '[S]earch [W]orkspace symbols' })
-      vim.keymap.set('n', '<leader>su', function()
-        require('telescope').extensions.undo.undo()
-      end, { desc = '[S]earch [U]ndo history' })
-
-      vim.keymap.set('n', '<leader>sS', builtin.lsp_dynamic_workspace_symbols, { desc = '[S]earch dynamic [S]ymbols' })
     end,
   },
 }
