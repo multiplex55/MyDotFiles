@@ -88,10 +88,9 @@ vim.opt.shiftwidth = 4 -- Indent by 4 spaces when using >> or <<
 vim.opt.tabstop = 4 -- Show a tab as 4 spaces
 vim.opt.softtabstop = 4 -- Insert 4 spaces when pressing Tab
 
--- Code Folding
--- vim.opt.foldmethod = 'expr'
+vim.opt.foldmethod = 'expr'
 vim.opt.foldexpr = 'nvim_treesitter#foldexpr()'
---vim.opt.foldlevel = 99 -- Don't fold by default
+vim.opt.foldlevel = 99 -- Don't fold by default
 -- or:
 --vim.opt.foldenable = false -- disables folding at startup
 
