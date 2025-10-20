@@ -100,6 +100,41 @@ return {
           group = '[r]ename',
         },
         {
+          '<leader>T',
+          group = '[T]erminal',
+          mode = { 'n', 't' },
+        },
+        {
+          '<leader>Tt',
+          desc = '[T]erminal toggle',
+          mode = { 'n', 't' },
+        },
+        {
+          '<leader>Tv',
+          desc = '[T]erminal [v]ertical split',
+          mode = { 'n', 't' },
+        },
+        {
+          '<leader>TF',
+          desc = '[T]erminal [F]loating window',
+          mode = { 'n', 't' },
+        },
+        {
+          '<leader>TT',
+          desc = '[T]erminal [T]ab',
+          mode = { 'n', 't' },
+        },
+        {
+          '<leader>Ts',
+          desc = '[T]erminal send line',
+          mode = { 'n' },
+        },
+        {
+          '<leader>TS',
+          desc = '[T]erminal send selection',
+          mode = { 'x' },
+        },
+        {
           '<leader>b',
           group = '[B]ookmarks',
           mode = { 'n' },
