@@ -100,18 +100,18 @@ return {
           group = '[r]ename',
         },
         {
-          '<leader>t',
-          group = '[t]erminal',
+          '<leader>T',
+          group = '[T]erminal',
           mode = { 'n' },
         },
         {
-          '<leader>tt',
-          desc = '[t]erminal toggle',
+          '<leader>Tt',
+          desc = '[T]erminal toggle',
           mode = { 'n' },
         },
         {
-          '<leader>tv',
-          desc = '[t]erminal [v]ertical split',
+          '<leader>Tv',
+          desc = '[T]erminal [v]ertical split',
           mode = { 'n' },
         },
         {

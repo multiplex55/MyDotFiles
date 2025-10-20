@@ -4,7 +4,7 @@ return {
     version = '*',
     keys = {
       {
-        '<leader>tt',
+        '<leader>Tt',
         function()
           require('toggleterm').toggle(1)
         end,
@@ -12,7 +12,7 @@ return {
         mode = { 'n' },
       },
       {
-        '<leader>tv',
+        '<leader>Tv',
         function()
           require('toggleterm').toggle(2, 80, nil, 'vertical')
         end,
