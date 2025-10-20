@@ -91,6 +91,7 @@ vim.opt.softtabstop = 4 -- Insert 4 spaces when pressing Tab
 vim.opt.foldmethod = 'expr'
 vim.opt.foldexpr = 'nvim_treesitter#foldexpr()'
 vim.opt.foldlevel = 99 -- Don't fold by default
+vim.opt.foldcolumn = '1'
 -- or:
 --vim.opt.foldenable = false -- disables folding at startup
 
