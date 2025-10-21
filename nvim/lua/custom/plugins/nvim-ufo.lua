@@ -34,13 +34,27 @@ return {
         return false
       end
 
+      local function resolve_event_window(event)
+        if event.win and event.win ~= 0 then
+          return event.win
+        end
+        if event.data and event.data.winid and event.data.winid ~= 0 then
+          return event.data.winid
+        end
+        local ok, winid = pcall(vim.api.nvim_get_current_win)
+        if not ok then
+          return nil
+        end
+        return winid
+      end
+
       local foldlevel_group = vim.api.nvim_create_augroup('custom_ufo_foldlevel', { clear = true })
 
       vim.api.nvim_create_autocmd({ 'BufWinLeave', 'WinLeave' }, {
         group = foldlevel_group,
         callback = function(event)
           local bufnr = event.buf
-          local winid = event.win
+          local winid = resolve_event_window(event)
           if should_skip(bufnr, winid) then
             return
           end
@@ -59,7 +73,7 @@ return {
         group = foldlevel_group,
         callback = function(event)
           local bufnr = event.buf
-          local winid = event.win
+          local winid = resolve_event_window(event)
           if should_skip(bufnr, winid) then
             return
           end
