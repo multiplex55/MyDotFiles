@@ -8,6 +8,102 @@ return {
     config = function()
       local ufo = require 'ufo'
 
+      local function should_skip(bufnr, winid)
+        if not bufnr or bufnr == 0 or not vim.api.nvim_buf_is_valid(bufnr) then
+          return true
+        end
+        if not winid or winid == 0 or not vim.api.nvim_win_is_valid(winid) then
+          return true
+        end
+
+        local buftype = vim.bo[bufnr].buftype
+        if buftype == 'nofile' or buftype == 'prompt' then
+          return true
+        end
+
+        local filetype = vim.bo[bufnr].filetype
+        if filetype == 'TelescopePrompt' or filetype == 'TelescopeResults' then
+          return true
+        end
+
+        local config = vim.api.nvim_win_get_config(winid)
+        if config.relative ~= '' then
+          return true
+        end
+
+        return false
+      end
+
+      local function resolve_event_window(event)
+        if event.win and event.win ~= 0 then
+          return event.win
+        end
+        if event.data and event.data.winid and event.data.winid ~= 0 then
+          return event.data.winid
+        end
+        local ok, winid = pcall(vim.api.nvim_get_current_win)
+        if not ok then
+          return nil
+        end
+        return winid
+      end
+
+      local foldlevel_group = vim.api.nvim_create_augroup('custom_ufo_foldlevel', { clear = true })
+
+      vim.api.nvim_create_autocmd({ 'BufWinLeave', 'WinLeave' }, {
+        group = foldlevel_group,
+        callback = function(event)
+          local bufnr = event.buf
+          local winid = resolve_event_window(event)
+          if should_skip(bufnr, winid) then
+            return
+          end
+
+          local ok, level = pcall(vim.api.nvim_win_call, winid, function()
+            return vim.wo.foldlevel
+          end)
+
+          if ok and type(level) == 'number' then
+            vim.b[bufnr]._ufo_saved_foldlevel = level
+          end
+        end,
+      })
+
+      vim.api.nvim_create_autocmd({ 'BufWinEnter', 'BufEnter' }, {
+        group = foldlevel_group,
+        callback = function(event)
+          local bufnr = event.buf
+          local winid = resolve_event_window(event)
+          if should_skip(bufnr, winid) then
+            return
+          end
+
+          local saved = vim.b[bufnr]._ufo_saved_foldlevel or 99
+
+          local ok = pcall(vim.api.nvim_win_call, winid, function()
+            vim.wo.foldlevel = saved
+          end)
+
+          if not ok then
+            return
+          end
+
+          if saved >= 99 then
+            vim.schedule(function()
+              if should_skip(bufnr, winid) then
+                return
+              end
+
+              vim.api.nvim_win_call(winid, function()
+                if vim.api.nvim_buf_is_valid(bufnr) then
+                  ufo.openAllFolds()
+                end
+              end)
+            end)
+          end
+        end,
+      })
+
       local hover_handler = vim.lsp.with(vim.lsp.handlers.hover, {
         border = 'rounded',
         title = 'Hover',
