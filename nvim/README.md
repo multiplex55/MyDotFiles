@@ -27,9 +27,13 @@ typed, so you can continue working muscle memory for write/quit commands like `:
 
 Buffers now start with Treesitter-powered expression folds enabled (`foldmethod=expr`),
 so commands like `zc` and `zo` operate on syntax-aware regions instead of manual markers.
-The default fold level is raised to keep files open on first load, so you can still drill
-into nested sections only when you need them. If you relied on creating manual folds, use
-`zf` to define them per buffer or switch the method back temporarily with `:setlocal foldmethod=manual`.
+By default the folds auto-open whenever a buffer or window becomes active—even right
+after writing the file to disk—so you never lose your expanded context while editing.
+If you prefer to work with everything collapsed, set `vim.g.ufo_default_fold_state =
+'closed'` in your `init.lua`. The UFO integration will then close all folds on enter and
+after every save so you retain the folded overview. If you relied on creating manual
+folds, use `zf` to define them per buffer or switch the method back temporarily with
+`:setlocal foldmethod=manual`.
 
 ### Rust tools
 
