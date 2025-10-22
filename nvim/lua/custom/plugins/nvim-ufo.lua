@@ -1,10 +1,19 @@
 return {
   {
     'kevinhwang91/nvim-ufo',
-    dependencies = {
-      'kevinhwang91/promise-async',
-    },
-    event = 'BufReadPost',
+    dependencies = { 'kevinhwang91/promise-async' },
+
+    -- Load after UI is ready so we can open folds for the current buffer immediately.
+    event = 'VeryLazy',
+
+    -- Make every buffer start unfolded by default.
+    init = function()
+      vim.o.foldcolumn = '1' -- show fold column (optional)
+      vim.o.foldlevel = 99 -- large foldlevel so everything is open
+      vim.o.foldlevelstart = 99 -- start buffers opened
+      vim.o.foldenable = true -- enable folding (but opened due to levels)
+    end,
+
     config = function()
       local ufo = require 'ufo'
 
@@ -15,94 +24,20 @@ return {
         if not winid or winid == 0 or not vim.api.nvim_win_is_valid(winid) then
           return true
         end
-
-        local buftype = vim.bo[bufnr].buftype
-        if buftype == 'nofile' or buftype == 'prompt' then
+        local bt = vim.bo[bufnr].buftype
+        if bt == 'nofile' or bt == 'prompt' then
           return true
         end
-
-        local filetype = vim.bo[bufnr].filetype
-        if filetype == 'TelescopePrompt' or filetype == 'TelescopeResults' then
+        local ft = vim.bo[bufnr].filetype
+        if ft == 'TelescopePrompt' or ft == 'TelescopeResults' then
           return true
         end
-
-        local config = vim.api.nvim_win_get_config(winid)
-        if config.relative ~= '' then
+        local cfg = vim.api.nvim_win_get_config(winid)
+        if cfg.relative ~= '' then
           return true
-        end
-
+        end -- floating windows, etc.
         return false
       end
-
-      local function resolve_event_window(event)
-        if event.win and event.win ~= 0 then
-          return event.win
-        end
-        if event.data and event.data.winid and event.data.winid ~= 0 then
-          return event.data.winid
-        end
-        local ok, winid = pcall(vim.api.nvim_get_current_win)
-        if not ok then
-          return nil
-        end
-        return winid
-      end
-
-      local foldlevel_group = vim.api.nvim_create_augroup('custom_ufo_foldlevel', { clear = true })
-
-      vim.api.nvim_create_autocmd({ 'BufWinLeave', 'WinLeave' }, {
-        group = foldlevel_group,
-        callback = function(event)
-          local bufnr = event.buf
-          local winid = resolve_event_window(event)
-          if should_skip(bufnr, winid) then
-            return
-          end
-
-          local ok, level = pcall(vim.api.nvim_win_call, winid, function()
-            return vim.wo.foldlevel
-          end)
-
-          if ok and type(level) == 'number' then
-            vim.b[bufnr]._ufo_saved_foldlevel = level
-          end
-        end,
-      })
-
-      vim.api.nvim_create_autocmd({ 'BufWinEnter', 'BufEnter' }, {
-        group = foldlevel_group,
-        callback = function(event)
-          local bufnr = event.buf
-          local winid = resolve_event_window(event)
-          if should_skip(bufnr, winid) then
-            return
-          end
-
-          local saved = vim.b[bufnr]._ufo_saved_foldlevel or 99
-
-          local ok = pcall(vim.api.nvim_win_call, winid, function()
-            vim.wo.foldlevel = saved
-          end)
-
-          if not ok then
-            return
-          end
-
-          if saved >= 99 then
-            vim.schedule(function()
-              if should_skip(bufnr, winid) then
-                return
-              end
-
-              vim.api.nvim_win_call(winid, function()
-                if vim.api.nvim_buf_is_valid(bufnr) then
-                  ufo.openAllFolds()
-                end
-              end)
-            end)
-          end
-        end,
-      })
 
       local hover_handler = vim.lsp.with(vim.lsp.handlers.hover, {
         border = 'rounded',
@@ -131,6 +66,33 @@ return {
         },
       }
 
+      -- Always open folds when entering a window that shows a normal buffer.
+      local aug = vim.api.nvim_create_augroup('ufo_auto_open', { clear = true })
+      vim.api.nvim_create_autocmd('BufWinEnter', {
+        group = aug,
+        callback = function(ev)
+          local winid = vim.api.nvim_get_current_win()
+          if should_skip(ev.buf, winid) then
+            return
+          end
+          vim.schedule(function()
+            if vim.api.nvim_buf_is_valid(ev.buf) and vim.api.nvim_win_is_valid(winid) then
+              ufo.openAllFolds()
+            end
+          end)
+        end,
+      })
+
+      -- Do it once right now for the current buffer (since we loaded on VeryLazy).
+      vim.schedule(function()
+        local bufnr = vim.api.nvim_get_current_buf()
+        local winid = vim.api.nvim_get_current_win()
+        if not should_skip(bufnr, winid) then
+          ufo.openAllFolds()
+        end
+      end)
+
+      -- Keymaps
       vim.keymap.set('n', 'zR', ufo.openAllFolds, { desc = 'UFO: Open all folds' })
       vim.keymap.set('n', 'zM', ufo.closeAllFolds, { desc = 'UFO: Close all folds' })
       vim.keymap.set('n', 'zp', function()
