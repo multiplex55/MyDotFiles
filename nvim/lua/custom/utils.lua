@@ -105,6 +105,8 @@ M.switch_colorscheme = function()
     'monokai-pro-machine',
     'monokai-pro-ristretto',
     'monokai-pro-classic',
+
+    'nightingale',
   }
 
   local original = vim.g.colors_name

@@ -107,6 +107,7 @@ return {
   { 'glepnir/zephyr-nvim', lazy = true }, -- dark with purple/cyan accents
   { 'NTBBloodbath/sweetie.nvim', lazy = true }, -- candy-colored dark
   { 'Shatur/neovim-ayu', lazy = true }, -- ayu-mirage: stylish and dark
+  { 'xeind/nightingale.nvim', lazy = true },
 
   -- Atmospheric minimalism
   {
