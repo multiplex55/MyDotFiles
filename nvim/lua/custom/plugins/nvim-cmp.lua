@@ -140,6 +140,9 @@ return {
 
       local cmdline_mapping = cmp.mapping.preset.cmdline()
       cmdline_mapping['<CR>'] = cmp.mapping(function(fallback)
+        fallback()
+      end, { 'c' })
+      cmdline_mapping['<C-y>'] = cmp.mapping(function(fallback)
         if cmp.visible() and cmp.get_selected_entry() then
           cmp.confirm { select = false }
         else

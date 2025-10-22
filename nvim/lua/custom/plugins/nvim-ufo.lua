@@ -8,10 +8,16 @@ return {
 
     -- Make every buffer start unfolded by default.
     init = function()
+      local default_state = vim.g.ufo_default_fold_state or 'open'
       vim.o.foldcolumn = '1' -- show fold column (optional)
-      vim.o.foldlevel = 99 -- large foldlevel so everything is open
-      vim.o.foldlevelstart = 99 -- start buffers opened
-      vim.o.foldenable = true -- enable folding (but opened due to levels)
+      if default_state == 'closed' then
+        vim.o.foldlevel = 0 -- keep folds closed until explicitly opened
+        vim.o.foldlevelstart = 0 -- start buffers folded
+      else
+        vim.o.foldlevel = 99 -- large foldlevel so everything is open
+        vim.o.foldlevelstart = 99 -- start buffers opened
+      end
+      vim.o.foldenable = true -- enable folding (respected by UFO handlers)
     end,
 
     config = function()
@@ -39,10 +45,32 @@ return {
         return false
       end
 
+      local default_state = vim.g.ufo_default_fold_state or 'open'
+
       local hover_handler = vim.lsp.with(vim.lsp.handlers.hover, {
         border = 'rounded',
         title = 'Hover',
       })
+
+      local function apply_default_state(bufnr, winid)
+        if should_skip(bufnr, winid) then
+          return
+        end
+
+        vim.schedule(function()
+          if not vim.api.nvim_buf_is_valid(bufnr) or not vim.api.nvim_win_is_valid(winid) then
+            return
+          end
+
+          vim.api.nvim_win_call(winid, function()
+            if default_state == 'closed' then
+              ufo.closeAllFolds()
+            else
+              ufo.openAllFolds()
+            end
+          end)
+        end)
+      end
 
       ufo.setup {
         provider_selector = function()
@@ -68,18 +96,11 @@ return {
 
       -- Always open folds when entering a window that shows a normal buffer.
       local aug = vim.api.nvim_create_augroup('ufo_auto_open', { clear = true })
-      vim.api.nvim_create_autocmd('BufWinEnter', {
+      vim.api.nvim_create_autocmd({ 'BufWinEnter', 'BufWritePost' }, {
         group = aug,
         callback = function(ev)
           local winid = vim.api.nvim_get_current_win()
-          if should_skip(ev.buf, winid) then
-            return
-          end
-          vim.schedule(function()
-            if vim.api.nvim_buf_is_valid(ev.buf) and vim.api.nvim_win_is_valid(winid) then
-              ufo.openAllFolds()
-            end
-          end)
+          apply_default_state(ev.buf, winid)
         end,
       })
 
@@ -87,9 +108,7 @@ return {
       vim.schedule(function()
         local bufnr = vim.api.nvim_get_current_buf()
         local winid = vim.api.nvim_get_current_win()
-        if not should_skip(bufnr, winid) then
-          ufo.openAllFolds()
-        end
+        apply_default_state(bufnr, winid)
       end)
 
       -- Keymaps
