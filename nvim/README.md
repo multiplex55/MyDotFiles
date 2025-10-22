@@ -16,6 +16,10 @@ This fork bundles [folke/noice.nvim](https://github.com/folke/noice.nvim) to mod
 command line, popup menus, and Neovim's built-in `vim.ui.input`/`vim.ui.select` prompts.
 The plugin is lazy-loaded and picks up your notify configuration to present polished
 floating windows for helper workflows like Koto, Rhai, and AutoHotkey.
+When the Noice-powered command-line menu offers a suggestion you want to accept, press
+`<C-y>` to confirm it explicitly. The `<CR>` key now always runs the exact command you
+typed, so you can continue working muscle memory for write/quit commands like `:w` or
+`:wq` without having to dismiss completion entries first.
 
 ## Custom Keymaps
 
