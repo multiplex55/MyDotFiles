@@ -162,7 +162,7 @@ return {
       local ensure_tools = { 'stylua' }
       require('mason-tool-installer').setup { ensure_installed = ensure_tools }
 
-      local mason_alias = { nim_langserver = 'nimls', tsserver = 'ts_ls' }
+      local mason_alias = { tsserver = 'ts_ls' }
       local function norm(name)
         return mason_alias[name] or name
       end
