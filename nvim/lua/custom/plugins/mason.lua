@@ -1,4 +1,4 @@
--- lua/custom/plugins/mason.lua
+-- lua/custom/plugins/mason.luama.
 return {
   {
     -- Main LSP Configuration

@@ -118,7 +118,7 @@ function M.setup()
   end
 
   local function with_neotest(action)
-    if not load_plugin('neotest') then
+    if not load_plugin 'neotest' then
       return
     end
 
@@ -129,7 +129,6 @@ function M.setup()
 
     return action(neotest)
   end
-
 
   -- Trouble & quickfix bindings
   local function toggle_trouble(mode)
@@ -189,24 +188,75 @@ function M.setup()
     end
   end, { desc = '[Q]ueued macros halt playback' })
 
-  vim.api.nvim_create_autocmd('FileType', {
-    pattern = 'nim',
-    callback = function(ev)
-      local buf = ev.buf
-      register_buffer_groups(buf, {
-        { '<leader>cn', group = '[C]ode [N]im', mode = 'n' },
-      })
+  ----- NIM KEYBINDS -----
+  local function nim_exec_in_tab(backend, extra_flags, run)
+    local dir_path = vim.fn.expand '%:p:h'
+    local filename_no_ext = vim.fn.expand '%:t:r'
+    local full_path_with_ext = vim.fn.expand '%:p'
 
-      vim.keymap.set('n', '<leader>cnpr', function()
-        local dir_path = vim.fn.expand '%:p:h'
-        local filename_no_ext = vim.fn.expand '%:t:r'
-        local full_path_with_ext = vim.fn.expand '%:p'
+    local run_part = run and ' -r' or ''
 
-        local cmd = string.format(':tabnew | term nim cpp -d:release -r --out:"%s\\bin\\%s" "%s"', dir_path, filename_no_ext, full_path_with_ext)
-        vim.cmd(cmd)
-      end, { buffer = buf, desc = '[C]ode [N]im c[P]p [R]un release' })
-    end,
-  })
+    local cmd =
+      string.format(':tabnew | term nim %s %s%s --out:"%s\\bin\\%s" "%s"', backend, extra_flags, run_part, dir_path, filename_no_ext, full_path_with_ext)
+
+    vim.cmd(cmd)
+  end
+
+  ------------------------------------------------------------------------
+  -- C backend: RUN keybinds
+  ------------------------------------------------------------------------
+
+  -- C backend: release + run (safe-ish)
+  vim.keymap.set('n', '<leader>cncr', function()
+    nim_exec_in_tab('c', '-d:release --opt:speed', true)
+  end, { buffer = buf, desc = '[C]ode [N]im [C] backend [R]un release' })
+
+  -- C backend: *fastest* (danger) + run
+  vim.keymap.set('n', '<leader>cncf', function()
+    nim_exec_in_tab('c', '-d:release -d:danger --opt:speed ' .. '--passC:"-march=native -mtune=native -flto" ' .. '--passL:"-s -flto"', true)
+  end, { buffer = buf, desc = '[C]ode [N]im [C] backend [F]astest (danger) run' })
+
+  -- C backend: debug + run
+  vim.keymap.set('n', '<leader>cncd', function()
+    nim_exec_in_tab('c', '-d:debug --lineTrace:on --stackTrace:on', true)
+  end, { buffer = buf, desc = '[C]ode [N]im [C] backend [D]ebug run' })
+
+  ------------------------------------------------------------------------
+  -- C backend: BUILD-ONLY RELEASE keybinds
+  ------------------------------------------------------------------------
+
+  -- C backend: release build (no run)
+  vim.keymap.set('n', '<leader>cncb', function()
+    nim_exec_in_tab('c', '-d:release --opt:speed', false)
+  end, { buffer = buf, desc = '[C]ode [N]im [C] backend [B]uild release' })
+
+  -- C backend: *fastest* (danger) build (no run)
+  vim.keymap.set('n', '<leader>cncF', function()
+    nim_exec_in_tab('c', '-d:release -d:danger --opt:speed ' .. '--passC:"-march=native -mtune=native -flto" ' .. '--passL:"-s -flto"', false)
+  end, { buffer = buf, desc = '[C]ode [N]im [C] backend [F]astest (danger) build' })
+
+  ------------------------------------------------------------------------
+  -- C++ backend: RUN keybinds
+  ------------------------------------------------------------------------
+
+  -- C++ backend: release + run
+  vim.keymap.set('n', '<leader>cnpr', function()
+    nim_exec_in_tab('cpp', '-d:release', true)
+  end, { buffer = buf, desc = '[C]ode [N]im c[P]p [R]un release' })
+
+  -- C++ backend: debug + run
+  vim.keymap.set('n', '<leader>cnpd', function()
+    nim_exec_in_tab('cpp', '-d:debug --lineTrace:on --stackTrace:on', true)
+  end, { buffer = buf, desc = '[C]ode [N]im c[P]p [D]ebug run' })
+
+  ------------------------------------------------------------------------
+  -- C++ backend: BUILD-ONLY RELEASE keybind
+  ------------------------------------------------------------------------
+
+  -- C++ backend: release build (no run)
+  vim.keymap.set('n', '<leader>cnpb', function()
+    nim_exec_in_tab('cpp', '-d:release', false)
+  end, { buffer = buf, desc = '[C]ode [N]im c[P]p [B]uild release' })
 
   vim.api.nvim_create_autocmd('FileType', {
     pattern = { 'rust', 'toml' },
@@ -398,7 +448,7 @@ function M.setup()
       table.insert(log_messages, msg)
     end
 
-    log('duplicate_current_tab invoked (<leader>tD)')
+    log 'duplicate_current_tab invoked (<leader>tD)'
 
     local current_win = vim.api.nvim_get_current_win()
 
@@ -451,7 +501,7 @@ function M.setup()
     local tabscope_source_tab = vim.api.nvim_get_current_tabpage()
 
     if not is_tabscope_available() then
-      log('TabScope not available; relying solely on layout snapshot data')
+      log 'TabScope not available; relying solely on layout snapshot data'
     end
 
     with_tabscope(function(ts)
@@ -462,10 +512,10 @@ function M.setup()
           tabscope_source_buffers = buffers
           log(('TabScope detected; %d tab-local buffers before duplication'):format(#buffers))
         else
-          log('TabScope detected but current tab buffers could not be retrieved; falling back to layout snapshot')
+          log 'TabScope detected but current tab buffers could not be retrieved; falling back to layout snapshot'
         end
       else
-        log('TabScope detected without tab buffer API; falling back to layout snapshot')
+        log 'TabScope detected without tab buffer API; falling back to layout snapshot'
       end
     end)
 
@@ -564,12 +614,12 @@ function M.setup()
 
     with_tabscope(function(ts)
       if not ts.tab_buffers or not ts.tab_buffers.get_current_tab_local_buffers then
-        log('TabScope post-duplication sync skipped: tab buffer manager unavailable')
+        log 'TabScope post-duplication sync skipped: tab buffer manager unavailable'
         return
       end
 
       if ts.tab_buffers._buffers_by_tab == nil then
-        log('TabScope post-duplication sync skipped: internal buffer table missing')
+        log 'TabScope post-duplication sync skipped: internal buffer table missing'
         return
       end
 
@@ -590,7 +640,7 @@ function M.setup()
 
       if ts.listed_buffers and ts.listed_buffers.update then
         ts.listed_buffers.update()
-        log('TabScope listed buffer manager updated for duplicated tab')
+        log 'TabScope listed buffer manager updated for duplicated tab'
       end
     end)
 
@@ -610,7 +660,7 @@ function M.setup()
     winshift().cmd_winshift()
   end, { desc = '[w]indows WinShift [m]ove mode (q/Esc to exit)' })
   vim.keymap.set('n', '<leader>ws', function()
-    if not load_plugin('smart-splits.nvim') then
+    if not load_plugin 'smart-splits.nvim' then
       return
     end
     local ok, smart_splits = pcall(require, 'smart-splits')
@@ -620,7 +670,7 @@ function M.setup()
     smart_splits.start_resize_mode()
   end, { desc = '[w]indow [s]mart resize mode' })
   vim.keymap.set('n', '<leader>wS', function()
-    if not load_plugin('smart-splits.nvim') then
+    if not load_plugin 'smart-splits.nvim' then
       return
     end
     local ok, smart_splits = pcall(require, 'smart-splits')
@@ -689,7 +739,7 @@ function M.setup()
 
     vim.keymap.set('n', '<leader>wbT', function()
       with_tabscope(function()
-        if vim.fn.exists(':TabScopeDebug') == 1 then
+        if vim.fn.exists ':TabScopeDebug' == 1 then
           vim.cmd.TabScopeDebug()
         end
       end)
@@ -892,7 +942,7 @@ function M.setup()
   end, { desc = 'Show Hover Doc' })
   -- Overseer keybinds under <leader>o
   local function run_overseer_command(command)
-    if not load_plugin('overseer.nvim') then
+    if not load_plugin 'overseer.nvim' then
       return
     end
     local ok, err = pcall(vim.cmd, command)
@@ -1300,7 +1350,6 @@ function M.setup()
     vim.fn.setreg('"', file) -- default register (nice for immediate paste)
     vim.notify('Copied path: ' .. file)
   end, { desc = '[Path] Copy full path' })
-
 end
 
 vim.api.nvim_create_autocmd('User', {
@@ -1311,4 +1360,3 @@ vim.api.nvim_create_autocmd('User', {
 })
 
 return setmetatable({}, { __index = M })
-
