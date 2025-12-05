@@ -8,4 +8,7 @@ hey kayla:
 sup walter:
     "Hey walter"
 
+switch:
+    "SWITCH HIT"
+    key(f13)
 
