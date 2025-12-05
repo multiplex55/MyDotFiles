@@ -1,0 +1,17 @@
+list: user.system_paths
+hostname: Jay
+-
+user: C:\Users\multi
+desktop: C:\Users\multi\OneDrive\Desktop
+desk: C:\Users\multi\Desktop
+documents: C:\Users\multi\OneDrive\Documents
+docks: C:\Users\multi\Documents
+downloads: C:\Users\multi\Downloads
+music: C:\Users\multi\Music
+pictures: C:\Users\multi\OneDrive\Pictures
+videos: C:\Users\multi\Videos
+talon home: C:\Users\multi\AppData\Roaming\talon
+talon recordings: C:\Users\multi\AppData\Roaming\talon\recordings
+talon user: C:\Users\multi\AppData\Roaming\talon\user
+profile: C:\Users\multi
+one drive: C:\Users\multi\OneDrive
