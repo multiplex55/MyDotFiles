@@ -20,12 +20,6 @@ launch discord kill:
 launch discord start:
     user.launch_app("discord start")
 
-launch git vim:
-    user.launch_app("git vim")
-
-launch git talon:
-    user.launch_app("git talon")
-
 launch github desktop:
     user.launch_app("github desktop")
 

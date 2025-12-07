@@ -4,10 +4,10 @@ settings():
 
     # Uncomment to set the speech timeout. This is the amount of time after you stop
     # speaking until Talon starts processing the spoken audio. Default is 0.3s.
-    # speech.timeout = 0.3
+     speech.timeout = 0.5
 
     # Uncomment to enable dark mode for talon help menus
-    # imgui.dark_mode = true
+    imgui.dark_mode = true
 
     # If `true`, automatically show the picker GUI when the file manager has focus
     user.file_manager_auto_show_pickers = false
@@ -16,7 +16,7 @@ settings():
     user.help_max_command_lines_per_page = 50
 
     # Set the number of contexts to display per help page
-    user.help_max_contexts_per_page = 20
+    user.help_max_contexts_per_page = 30
 
     # Uncomment to always sort help contexts alphabetically.
     # user.help_sort_contexts_by_specificity = false
@@ -83,7 +83,7 @@ settings():
 
     # Uncomment to insert text longer than 10 characters (customizable) by pasting from
     # the clipboard. This is often faster than typing.
-    # user.paste_to_insert_threshold = 10
+    user.paste_to_insert_threshold = 10
 
     # Uncomment to enable context-sensitive dictation. This determines how to format
     # (capitalize, space) dictation-mode speech by selecting & copying surrounding text
@@ -121,7 +121,7 @@ settings():
 # Uncomment the below to enable support for saying numbers without a prefix.
 # By default you need to say "numb one" to write "1". If you uncomment this,
 # you can say "one" to write "1".
-# tag(): user.unprefixed_numbers
+tag(): user.unprefixed_numbers
 
 # Uncomment the below to enable the experimental window layout commands
 # defined in window_layout.talon

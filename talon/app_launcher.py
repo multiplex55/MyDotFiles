@@ -24,11 +24,11 @@ APP_CONFIG = {
     },
     "discord kill": {
         "exe": "StopDiscord.exe",
-        "path": r"C:\Tools\TalonApps\discord_scripts\StopDiscord.exe",
+        "path": r"C:\Tools\TalonApps\Discord\StopDiscord.exe",
     },
     "discord start": {
         "exe": "RestartDiscord.exe",
-        "path": r"C:\Tools\TalonApps\discord_scripts\RestartDiscord.exe",
+        "path": r"C:\Tools\TalonApps\Discord\RestartDiscord.exe",
     },
     "github desktop": {
         "exe": "GithubDesktop.exe",

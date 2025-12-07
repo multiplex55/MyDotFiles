@@ -85,6 +85,7 @@ def gui_wheel(gui: imgui.GUI):
     gui.line()
     if gui.button("[Wheel] Stop"):
         actions.user.mouse_scroll_stop()
+        actions.key("escape")
 
 
 @mod.action_class
