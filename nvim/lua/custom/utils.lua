@@ -16,7 +16,7 @@ M.switch_colorscheme = function()
     'tokyonight',
     'tokyonight-night',
     'tokyonight-moon',
-    'tokyonight-day',
+    -- 'tokyonight-day',
 
     -- OneDark & Nord
     'onedark',
@@ -26,7 +26,7 @@ M.switch_colorscheme = function()
     'carbonfox',
     'duskfox',
     'nightfox',
-    'dayfox',
+    -- 'dayfox',
     'nordfox',
     'terafox',
 
@@ -34,18 +34,18 @@ M.switch_colorscheme = function()
     'kanagawa',
     'kanagawa-wave',
     'kanagawa-dragon',
-    'kanagawa-lotus',
+    -- 'kanagawa-lotus',
 
     -- Gruvbox Material
-    'gruvbox-material',
+    -- 'gruvbox-material',
 
     -- GitHub variants
     'github_dark_default',
     'github_dark_dimmed',
     'github_dark_high_contrast',
-    'github_light',
-    'github_light_default',
-    'github_light_high_contrast',
+    -- 'github_light',
+    -- 'github_light_default',
+    -- 'github_light_high_contrast',
 
     -- Material
     'material',
@@ -53,7 +53,7 @@ M.switch_colorscheme = function()
     -- Rose Pine variants
     'rose-pine',
     'rose-pine-moon',
-    'rose-pine-dawn',
+    -- 'rose-pine-dawn',
 
     -- Others
     'oxocarbon',
@@ -89,11 +89,11 @@ M.switch_colorscheme = function()
     -- Jellybeans palettes
     'jellybeans',
     'jellybeans-default',
-    'jellybeans-light',
+    -- 'jellybeans-light',
     'jellybeans-muted',
-    'jellybeans-muted-light',
+    -- 'jellybeans-muted-light',
     'jellybeans-mono',
-    'jellybeans-mono-light',
+    -- 'jellybeans-mono-light',
 
     -- Sitruuna
     'sitruuna',
@@ -107,6 +107,7 @@ M.switch_colorscheme = function()
     'monokai-pro-classic',
 
     'nightingale',
+    'hubbamax',
   }
 
   local original = vim.g.colors_name

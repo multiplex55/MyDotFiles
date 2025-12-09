@@ -108,6 +108,7 @@ return {
   { 'NTBBloodbath/sweetie.nvim', lazy = true }, -- candy-colored dark
   { 'Shatur/neovim-ayu', lazy = true }, -- ayu-mirage: stylish and dark
   { 'xeind/nightingale.nvim', lazy = true },
+  { 'alexpasmantier/hubbamax.nvim', lazy = true },
 
   -- Atmospheric minimalism
   {

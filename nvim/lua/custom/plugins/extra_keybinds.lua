@@ -227,7 +227,7 @@ function M.setup()
 
   -- C backend: release build (no run)
   vim.keymap.set('n', '<leader>cncb', function()
-    nim_exec_in_tab('c', '-d:release --opt:speed', false)
+    nim_exec_in_tab('c', '-d:release --opt:speed --errorMax:0', false)
   end, { buffer = buf, desc = '[C]ode [N]im [C] backend [B]uild release' })
 
   -- C backend: *fastest* (danger) build (no run)
