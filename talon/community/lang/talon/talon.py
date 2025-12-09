@@ -64,7 +64,10 @@ def on_update_decls(decls):
 
 
 def on_ready():
-    # print("on_ready")
+    print("on_ready")
+    actions.mode.enable("sleep")
+    actions.mode.disable("command")
+    actions.mode.disable("dictation")
     on_update_decls(registry.decls)
     registry.register("update_decls", on_update_decls)
 

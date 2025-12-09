@@ -8,7 +8,7 @@ hey kayla:
 sup walter:
     "Hey walter"
 
-switch:
+test switch:
     "SWITCH HIT"
     key(f13)
 
@@ -22,10 +22,7 @@ test escape:
     key(escape)
 
 
-test eff one:
-    key("f1")
-
-test one:
+test one two:
     key("f13")
 
 
