@@ -188,7 +188,7 @@ function M.setup()
     end
   end, { desc = '[Q]ueued macros halt playback' })
 
-  ----- NIM KEYBINDS -----
+  ----- NIM KEYBINDS (using Zig via zigcc) -----
   local function nim_exec_in_tab(backend, extra_flags, run)
     local dir_path = vim.fn.expand '%:p:h'
     local filename_no_ext = vim.fn.expand '%:t:r'
@@ -196,8 +196,25 @@ function M.setup()
 
     local run_part = run and ' -r' or ''
 
-    local cmd =
-      string.format(':tabnew | term nim %s %s%s --out:"%s\\bin\\%s" "%s"', backend, extra_flags, run_part, dir_path, filename_no_ext, full_path_with_ext)
+    -- Use Zig as the C/C++ toolchain via zigcc / zigcpp wrappers
+    -- Requires: nimble install zigcc
+    local zig_flags
+    if backend == 'cpp' then
+      zig_flags = '--cc:clang --clang.cpp.exe="zigcpp.cmd" --clang.cpp.linkerexe="zigcpp.cmd"'
+    else
+      zig_flags = '--cc:clang --clang.exe="zigcc.cmd" --clang.linkerexe="zigcc.cmd"'
+    end
+
+    local cmd = string.format(
+      ':tabnew | term nim %s %s %s%s --out:"%s\\bin\\%s" "%s"',
+      backend,
+      zig_flags,
+      extra_flags,
+      run_part,
+      dir_path,
+      filename_no_ext,
+      full_path_with_ext
+    )
 
     vim.cmd(cmd)
   end
