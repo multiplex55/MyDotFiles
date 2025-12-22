@@ -275,6 +275,112 @@ function M.setup()
     nim_exec_in_tab('cpp', '-d:release', false)
   end, { buffer = buf, desc = '[C]ode [N]im c[P]p [B]uild release' })
 
+  ------------------------------------------------------------------------
+  -- Nimpretty formatting keybinds
+  ------------------------------------------------------------------------
+
+  local function _notify(level, msg)
+    vim.schedule(function()
+      vim.notify(msg, level)
+    end)
+  end
+
+  local function _has_nimpretty()
+    if vim.fn.executable 'nimpretty' ~= 1 then
+      _notify(vim.log.levels.ERROR, 'nimpretty not found in PATH. Ensure Nim is installed and nimpretty is available.')
+      return false
+    end
+    return true
+  end
+
+  -- Format current file (nimpretty)
+  vim.keymap.set('n', '<leader>cnf', function()
+    if not _has_nimpretty() then
+      return
+    end
+
+    local file = vim.fn.expand '%:p'
+    if file == nil or file == '' then
+      _notify(vim.log.levels.WARN, 'No file path for current buffer.')
+      return
+    end
+
+    vim.cmd 'write'
+
+    vim.fn.jobstart({ 'nimpretty', file }, {
+      stdout_buffered = true,
+      stderr_buffered = true,
+      on_exit = function(_, code)
+        if code == 0 then
+          vim.schedule(function()
+            vim.cmd 'edit' -- reload formatted file
+          end)
+          _notify(vim.log.levels.INFO, 'nimpretty: formatted current file.')
+        else
+          _notify(vim.log.levels.ERROR, ('nimpretty failed (exit code %d).'):format(code))
+        end
+      end,
+    })
+  end, { buffer = buf, desc = '[C]ode [N]im [F]ormat current file (nimpretty)' })
+
+  -- Format all .nim files under CWD recursively (nimpretty)
+  vim.keymap.set('n', '<leader>cnF', function()
+    if not _has_nimpretty() then
+      return
+    end
+
+    -- Save all modified buffers first to avoid formatting stale on-disk content
+    vim.cmd 'wall'
+
+    local files = vim.fn.glob('**/*.nim', 0, 1) -- recursive under current working directory
+    if type(files) ~= 'table' or #files == 0 then
+      _notify(vim.log.levels.INFO, 'nimpretty: no .nim files found under current working directory.')
+      return
+    end
+
+    -- Normalize to absolute paths
+    for i, f in ipairs(files) do
+      files[i] = vim.fn.fnamemodify(f, ':p')
+    end
+
+    local total = #files
+    local idx = 0
+    local failures = {}
+
+    _notify(vim.log.levels.INFO, ('nimpretty: formatting %d file(s) under %s ...'):format(total, vim.fn.getcwd()))
+
+    local function run_next()
+      idx = idx + 1
+      if idx > total then
+        vim.schedule(function()
+          -- Refresh any open buffers that were changed on disk
+          vim.cmd 'checktime'
+        end)
+
+        if #failures == 0 then
+          _notify(vim.log.levels.INFO, ('nimpretty: formatted %d file(s).'):format(total))
+        else
+          _notify(vim.log.levels.WARN, ('nimpretty: formatted %d/%d file(s). Failures:\n%s'):format(total - #failures, total, table.concat(failures, '\n')))
+        end
+        return
+      end
+
+      local file = files[idx]
+      vim.fn.jobstart({ 'nimpretty', file }, {
+        stdout_buffered = true,
+        stderr_buffered = true,
+        on_exit = function(_, code)
+          if code ~= 0 then
+            table.insert(failures, ('- %s (exit %d)'):format(file, code))
+          end
+          run_next()
+        end,
+      })
+    end
+
+    run_next()
+  end, { buffer = buf, desc = '[C]ode [N]im [F]ormat all Nim files under CWD (nimpretty)' })
+
   vim.api.nvim_create_autocmd('FileType', {
     pattern = { 'rust', 'toml' },
     callback = function(ev)
