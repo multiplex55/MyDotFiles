@@ -276,6 +276,14 @@ function M.setup()
   end, { buffer = buf, desc = '[C]ode [N]im c[P]p [B]uild release' })
 
   ------------------------------------------------------------------------
+  -- C backend: TRACE (max stack/line trace) + run
+  ------------------------------------------------------------------------
+  vim.keymap.set('n', '<leader>cnct', function()
+    vim.cmd 'write'
+    nim_exec_in_tab('c', '-d:debug --stackTrace:on --lineTrace:on --debuginfo --debugger:native --opt:none --errorMax:0', true)
+  end, { buffer = buf, desc = '[C]ode [N]im [C] backend [T]race run (full stack/line trace)' })
+
+  ------------------------------------------------------------------------
   -- Nimpretty formatting keybinds
   ------------------------------------------------------------------------
 
