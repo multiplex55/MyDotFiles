@@ -8,7 +8,7 @@ end
 M.paths = {
   node = get('ahk2_node', [[C:\tools\node-portable\node.exe]]),
   server = get('ahk2_server', vim.fn.expand [[C:\Tools\vscode-autohotkey2-lsp\server\dist\server.js]]),
-  ahk_exe = get('ahk2_exe', [[E:\Github\AHK_Dev\AutoHotkey\v2\AutoHotkey64.exe]]),
+  ahk_exe = get('ahk2_exe', [["C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe"]]),
 }
 
 local function exists(p)

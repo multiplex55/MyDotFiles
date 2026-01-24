@@ -890,7 +890,7 @@ function M.setup()
   vim.keymap.set('n', '<leader>tD', duplicate_current_tab, { desc = '[T]ab [D]uplicate layout' })
   --Sessions Saving
   -- Manual session controls
-  vim.keymap.set('n', '<leader>ssm', ':SessionSave<space>', { desc = '[s]ession [s]ave [M]anual Save' })
+  vim.keymap.set('n', '<leader>ssm', ':Autosession save<space>', { desc = '[s]ession [s]ave [M]anual Save' })
   vim.keymap.set('n', '<leader>ssr', ':AutoSession restore<space>', { desc = '[s]ession AutoSession [R]estore' })
   vim.keymap.set('n', '<leader>ssd', ':SessionDelete<space>', { desc = '[s]ession [s]ave [D]elete' })
   --Theme Switching
@@ -1228,8 +1228,8 @@ function M.setup()
     if ok and mod.paths then
       p.ahk_exe = mod.paths.ahk_exe
     end
-    p.ahk_exe = p.ahk_exe or (vim.g.ahk2_exe or [[C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe]])
-    p.compiler = vim.g.ahk2_compiler or [[C:\Program Files\AutoHotkey\Compiler\Ahk2Exe.exe]]
+    p.ahk_exe = p.ahk_exe or (vim.g.ahk2_exe or [["C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe"]])
+    p.compiler = vim.g.ahk2_compiler or [["C:\Program Files\AutoHotkey\Compiler\Ahk2Exe.exe"]]
     return p
   end
 
@@ -1430,13 +1430,25 @@ function M.setup()
           vim.fn.mkdir(outdir, 'p')
         end
 
-        local args = { '/in', infile, '/out', outfile }
+        -- Use shellescape on every path to safely handle spaces
+        local args = {
+          '/in',
+          vim.fn.shellescape(infile),
+          '/out',
+          vim.fn.shellescape(outfile),
+          '/base',
+          p.ahk_exe, -- This uses your ahk2_exe as the bin
+        }
+
         if vim.loop.fs_stat(icon) then
           table.insert(args, '/icon')
-          table.insert(args, icon)
+          table.insert(args, vim.fn.shellescape(icon))
         end
 
-        local cmd = vim.list_extend({ p.compiler }, args)
+        -- Ensure the compiler path itself is also escaped
+        local compiler = vim.fn.shellescape(p.compiler)
+        local cmd = vim.list_extend({ compiler }, args)
+
         run_build_cmd(cmd, 'AHK: compile to exe')
       end, '[C]ode a[h]k [C]ompile to exe')
 
