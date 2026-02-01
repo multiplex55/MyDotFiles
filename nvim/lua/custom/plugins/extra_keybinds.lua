@@ -417,6 +417,9 @@ function M.setup()
       map('<leader>crB', '<cmd>tabnew | term cargo build --release<cr>', '[C]ode [R]ust Build --[R]elease')
       map('<leader>crT', '<cmd>tabnew | term cargo test<cr>', '[C]ode [R]ust [T]est suite')
       map('<leader>crt', '<cmd>tabnew | term cargo nextest run --no-capture --test-threads=1<cr>', '[C]ode [R]ust [T]est')
+      map('<leader>crn', '<Nop>', '[C]ode [R]ust [N]extest')
+      map('<leader>crnl', '<cmd>tabnew | term cargo nextest list<cr>', '[C]ode [R]ust [N]extest [L]ist')
+      map('<leader>crnr', '<cmd>tabnew | term cargo nextest run --no-fail-fast<cr>', '[C]ode [R]ust [N]extest [R]un --no-fail-fast')
       map('<leader>crc', '<cmd>tabnew | term cargo check<cr>', '[C]ode [R]ust [C]heck')
       map('<leader>crl', '<cmd>tabnew | term cargo clippy<cr>', '[C]ode [R]ust C[L]ippy lint')
       map('<leader>crd', function()
@@ -890,7 +893,7 @@ function M.setup()
   vim.keymap.set('n', '<leader>tD', duplicate_current_tab, { desc = '[T]ab [D]uplicate layout' })
   --Sessions Saving
   -- Manual session controls
-  vim.keymap.set('n', '<leader>ssm', ':Autosession save<space>', { desc = '[s]ession [s]ave [M]anual Save' })
+  vim.keymap.set('n', '<leader>ssm', ':AutoSession save<space>', { desc = '[s]ession [s]ave [M]anual Save' })
   vim.keymap.set('n', '<leader>ssr', ':AutoSession restore<space>', { desc = '[s]ession AutoSession [R]estore' })
   vim.keymap.set('n', '<leader>ssd', ':SessionDelete<space>', { desc = '[s]ession [s]ave [D]elete' })
   --Theme Switching

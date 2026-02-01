@@ -1,7 +1,8 @@
 -- Select how aggressively rust-analyzer should collect project information.
 -- Change the default below or set `vim.g.rust_analyzer_profile` (e.g. in `init.lua`).
 -- Only one profile should be active at a time.
-local rust_analyzer_profile = vim.g.rust_analyzer_profile or 'normal'
+-- local rust_analyzer_profile = vim.g.rust_analyzer_profile or 'normal'
+local rust_analyzer_profile = 'no_checks'
 
 -- Profiles balance rust-analyzer features against start-up time and memory usage.
 -- Each entry is merged directly into `vim.g.rustaceanvim.server.settings`.
