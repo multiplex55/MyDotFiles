@@ -160,6 +160,19 @@ function M.setup()
     toggle_trouble 'quickfix'
   end, { desc = '[x] Trouble quickfix list' })
 
+  -- seeker.nvim (progressive file + grep searching)
+  do
+    local wk = load_which_key()
+    if wk then
+      wk.add {
+        { '<leader>sp', group = '[S]earch [P]rogressive', mode = { 'n' } },
+      }
+    end
+  end
+
+  vim.keymap.set('n', '<leader>sp', '<cmd>Seeker files<cr>', { desc = '[S]earch [P]rogressive (auto)' })
+  vim.keymap.set('n', '<leader>sP', '<cmd>Seeker grep<cr>', { desc = '[S]earch [P]rogressive [G]rep → files' })
+
   -- NeoComposer macro management bindings
   -- These keymaps lazy-load NeoComposer before interacting with its UI or macro helpers.
   vim.keymap.set('n', '<leader>qm', function()
