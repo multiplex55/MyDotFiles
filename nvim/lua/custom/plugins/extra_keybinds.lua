@@ -1138,25 +1138,79 @@ function M.setup()
   end, { desc = '[O]verseer [b]uild tasks' })
   --Telescope file browser
   vim.keymap.set('n', '<space>sb', ':Telescope file_browser path=%":p:h select_buffer=true<CR>', { desc = '[S]earch file [B]rowser' })
-  -- Nvim Spectre
+  -- Search/replace helpers (grug-far)
+  local function grug_far()
+    local grug = lazy_require('grug-far', 'grug-far.nvim')
+    if grug then
+      return grug
+    end
 
-  local function spectre()
-    require('lazy').load { plugins = { 'nvim-spectre' } }
-    return require 'spectre'
+    vim.notify('grug-far.nvim is unavailable', vim.log.levels.WARN)
+    return nil
   end
 
-  vim.keymap.set('n', '<leader>srs', function()
-    spectre().toggle()
-  end, { desc = '[s]earch [r]eplace [s]pectre' })
+  local function current_visual_selection()
+    local start_row, start_col = table.unpack(vim.api.nvim_buf_get_mark(0, '<'))
+    local end_row, end_col = table.unpack(vim.api.nvim_buf_get_mark(0, '>'))
+
+    if start_row == 0 or end_row == 0 then
+      return nil
+    end
+
+    local lines = vim.api.nvim_buf_get_text(0, start_row - 1, start_col, end_row - 1, end_col + 1, {})
+    if #lines == 0 then
+      return nil
+    end
+
+    return table.concat(lines, '\n')
+  end
+
+  vim.keymap.set('n', '<leader>srr', function()
+    local grug = grug_far()
+    if not grug then
+      return
+    end
+    grug.open()
+  end, { desc = '[S]earch [R]eplace in p[R]oject' })
+
+  vim.keymap.set('n', '<leader>srf', function()
+    local grug = grug_far()
+    if not grug then
+      return
+    end
+    grug.open {
+      prefills = {
+        paths = vim.fn.expand '%',
+      },
+    }
+  end, { desc = '[S]earch [R]eplace in [F]ile' })
+
   vim.keymap.set('n', '<leader>srw', function()
-    spectre().open_visual { select_word = true }
-  end, { desc = '[s]earch [r]eplace Spectre visual under [w]ord' })
+    local grug = grug_far()
+    if not grug then
+      return
+    end
+    grug.open {
+      prefills = {
+        search = vim.fn.expand '<cword>',
+      },
+    }
+  end, { desc = '[S]earch [R]eplace [W]ord under cursor' })
+
   vim.keymap.set('v', '<leader>srv', function()
-    spectre().open_visual()
-  end, { desc = '[s]earch [r]eplace Spectre [v]isual' })
-  vim.keymap.set('n', '<leader>src', function()
-    spectre().open_file_search()
-  end, { desc = '[s]earch [r]eplace Spectre [c]urrent File' })
+    local grug = grug_far()
+    if not grug then
+      return
+    end
+
+    local selection = current_visual_selection()
+    grug.open {
+      prefills = {
+        search = selection,
+      },
+      visualSelectionUsage = 'operate-within-range',
+    }
+  end, { desc = '[S]earch [R]eplace [V]isual selection' })
 
   -- Helper to run a command in Overseer if present, else a terminal split
   local function run_build_cmd(cmd, title)
