@@ -168,6 +168,31 @@ return {
           group = '[s]earch',
         },
         {
+          '<leader>sr',
+          group = '[S]earch [R]eplace',
+          mode = { 'n', 'v' },
+        },
+        {
+          '<leader>srr',
+          desc = '[S]earch [R]eplace in p[R]oject',
+          mode = { 'n' },
+        },
+        {
+          '<leader>srf',
+          desc = '[S]earch [R]eplace in [F]ile',
+          mode = { 'n' },
+        },
+        {
+          '<leader>srw',
+          desc = '[S]earch [R]eplace [W]ord under cursor',
+          mode = { 'n' },
+        },
+        {
+          '<leader>srv',
+          desc = '[S]earch [R]eplace [V]isual selection',
+          mode = { 'v' },
+        },
+        {
           '<leader>sT',
           desc = '[S]earch [T]abs',
           mode = { 'n' },
