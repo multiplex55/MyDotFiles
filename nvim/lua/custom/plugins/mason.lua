@@ -129,7 +129,7 @@ return {
 
       local servers = {
         gopls = {},
-        nim_langserver = {}, -- we'll alias this to 'nimls' below
+        nim_langserver = {}, -- aliased to 'nimls' below
         zls = {
           root_dir = function(fname)
             return util.root_pattern('build.zig', 'zig.zon', '.git')(fname) or util.path.dirname(fname)
@@ -137,7 +137,7 @@ return {
           settings = {
             zls = {
               enable_inlay_hints = true,
-              -- zig_exe_path = "C:\\\\Program Files\\\\Zig\\\\zig.exe",
+              -- zig_exe_path = "C:\\Program Files\\Zig\\zig.exe",
             },
           },
         },
@@ -162,91 +162,39 @@ return {
       local ensure_tools = { 'stylua' }
       require('mason-tool-installer').setup { ensure_installed = ensure_tools }
 
-      local mason_alias = { tsserver = 'ts_ls' }
-      local function norm(name)
-        return mason_alias[name] or name
+      local server_aliases = {
+        nim_langserver = 'nimls',
+        tsserver = 'ts_ls',
+      }
+
+      local function normalize_server_name(name)
+        return server_aliases[name] or name
       end
 
       local mlsp = require 'mason-lspconfig'
-      local ids = {}
+      local ensure_installed = {}
+      local seen = {}
       for name, _ in pairs(servers) do
-        table.insert(ids, norm(name))
+        local normalized = normalize_server_name(name)
+        if not seen[normalized] then
+          table.insert(ensure_installed, normalized)
+          seen[normalized] = true
+        end
       end
-      mlsp.setup { ensure_installed = ids }
 
-      ---------------------------------------------------------------------------
-      -- Start servers WITHOUT touching lspconfig's deprecated root
-      -- (No require('lspconfig'), no "unknown server" warnings)
-      ---------------------------------------------------------------------------
-      local builtin_defaults = {
-        lua_ls = {
-          cmd = { 'lua-language-server' },
-          filetypes = { 'lua' },
-          root_dir = function(fname)
-            return util.root_pattern('.luarc.json', '.luarc.jsonc', '.stylua.toml', 'stylua.toml', 'selene.toml', '.git')(fname) or util.path.dirname(fname)
-          end,
-        },
-        gopls = {
-          cmd = { 'gopls' },
-          filetypes = { 'go', 'gomod', 'gowork', 'gotmpl' },
-          root_dir = function(fname)
-            return util.root_pattern('go.work', 'go.mod', '.git')(fname) or util.path.dirname(fname)
-          end,
-        },
-        zls = {
-          cmd = { 'zls' },
-          filetypes = { 'zig', 'zir' },
-          root_dir = function(fname)
-            return util.root_pattern('build.zig', 'zig.zon', '.git')(fname) or util.path.dirname(fname)
-          end,
-        },
-        nimls = {
-          cmd = { 'nimlangserver' }, -- mason installs this exe
-          filetypes = { 'nim', 'nims' },
-          root_dir = function(fname)
-            return util.root_pattern '.git'(fname) or util.path.dirname(fname)
-          end,
-        },
+      mlsp.setup {
+        ensure_installed = ensure_installed,
+        automatic_enable = false,
       }
 
-      local id_alias = { nim_langserver = 'nimls', tsserver = 'ts_ls' }
-
-      local function start_server(name, user_cfg)
-        local id = id_alias[name] or name
-        local d = builtin_defaults[id] or {}
-
-        local final = vim.tbl_deep_extend('force', {}, d, user_cfg or {})
-        final.capabilities = vim.tbl_deep_extend('force', {}, capabilities, final.capabilities or {})
-        final.name = final.name or id
-
-        local fts = final.filetypes or {}
-        if #fts == 0 then
-          fts = { '*' }
-        end
-
-        vim.api.nvim_create_autocmd('FileType', {
-          pattern = fts,
-          callback = function(args)
-            if vim.lsp.get_clients({ bufnr = args.buf, name = final.name })[1] then
-              return
-            end
-
-            local fname = vim.api.nvim_buf_get_name(args.buf)
-            local root = final.root_dir
-            if type(root) == 'function' then
-              root = root(fname)
-            end
-            if not root or root == '' then
-              root = util.root_pattern '.git'(fname) or util.path.dirname(fname)
-            end
-
-            vim.lsp.start(vim.tbl_deep_extend('force', final, { root_dir = root }), { bufnr = args.buf })
-          end,
-        })
-      end
-
       for name, cfg in pairs(servers) do
-        start_server(name, cfg)
+        local server_name = normalize_server_name(name)
+        local merged_config = vim.tbl_deep_extend('force', {
+          capabilities = vim.tbl_deep_extend('force', {}, capabilities),
+        }, cfg or {})
+
+        vim.lsp.config(server_name, merged_config)
+        vim.lsp.enable(server_name)
       end
     end,
   },
