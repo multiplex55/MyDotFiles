@@ -116,6 +116,21 @@ Minimum filetypes to verify:
 
 Rust is verified separately through `rustaceanvim` instead of the general `vim.lsp.enable()` path.
 
+## Zig ownership (single source of truth)
+
+Zig language-server ownership lives in `lua/custom/plugins/mason.lua` under the `servers.zls` table.
+Do not duplicate `zls` setup in `lua/custom/lang/zig.lua` or other startup paths.
+
+Related Zig pieces are intentionally split by responsibility:
+
+* **LSP install + enable + root detection**: `lua/custom/plugins/mason.lua` (`zls` server config, including single-file fallback root detection).
+* **Formatting**: `lua/custom/plugins/conform.lua` (`formatters_by_ft.zig = { 'zigfmt' }`).
+* **Treesitter parser install**: `lua/custom/plugins/nvim-treesitter.lua` (`ensure_installed` includes `zig`).
+* **Zig keymaps/tasks**: `lua/custom/plugins/extra_keybinds.lua` (`FileType zig` mappings only; no LSP ownership).
+
+Optional debug aid: set `vim.g.zig_lsp_debug_attach = true` to emit a one-line `LspAttach` notification showing the attached Zig client name.
+Leave it `false`/unset for normal use.
+
 ## Installation
 
 ### Install Neovim
