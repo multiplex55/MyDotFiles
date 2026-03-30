@@ -25,37 +25,6 @@ return {
     end,
   },
 
-  -- LSP: zls
-  {
-    'neovim/nvim-lspconfig',
-    opts = {
-      servers = {
-        zls = {
-          -- Use cmp_nvim_lsp caps if available; otherwise plain caps
-          capabilities = (function()
-            local caps = vim.lsp.protocol.make_client_capabilities()
-            pcall(function()
-              caps = require('cmp_nvim_lsp').default_capabilities(caps)
-            end)
-            return caps
-          end)(),
-          -- Good roots for Zig projects
-          root_dir = function(fname)
-            local util = require 'lspconfig.util'
-            return util.root_pattern('build.zig', 'zig.zon', '.git')(fname) or util.path.dirname(fname)
-          end,
-          -- Optional: pin zig.exe explicitly on Windows if zls doesn’t find it
-          settings = {
-            zls = {
-              enable_inlay_hints = true,
-              -- zig_exe_path = "C:\\Program Files\\Zig\\zig.exe", -- uncomment if needed
-            },
-          },
-        },
-      },
-    },
-  },
-
   -- Formatting: zig fmt via Conform
   {
     'stevearc/conform.nvim',
