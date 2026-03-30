@@ -172,18 +172,18 @@ return {
       end
 
       local mlsp = require 'mason-lspconfig'
-      local ensure_installed = {}
+      local ids = {}
       local seen = {}
       for name, _ in pairs(servers) do
-        local normalized = normalize_server_name(name)
-        if not seen[normalized] then
-          table.insert(ensure_installed, normalized)
-          seen[normalized] = true
+        local id = normalize_server_name(name)
+        if not seen[id] then
+          table.insert(ids, id)
+          seen[id] = true
         end
       end
 
       mlsp.setup {
-        ensure_installed = ensure_installed,
+        ensure_installed = ids,
         automatic_enable = false,
       }
 
