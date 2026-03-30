@@ -95,9 +95,6 @@ M.switch_colorscheme = function()
     'jellybeans-mono',
     -- 'jellybeans-mono-light',
 
-    -- Sitruuna
-    'sitruuna',
-
     -- Monokai Pro variants
     'monokai-pro',
     'monokai-pro-spectrum',

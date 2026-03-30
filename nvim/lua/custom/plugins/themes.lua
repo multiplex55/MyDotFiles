@@ -139,15 +139,6 @@ return {
     },
   },
 
-  -- Sitruuna
-  {
-    'eemed/sitruuna.vim',
-    lazy = true,
-    init = function()
-      vim.g.sitruuna_fzf = 1
-    end,
-  },
-
   -- Monokai Pro
   { 'loctvl842/monokai-pro.nvim', lazy = true },
 }
