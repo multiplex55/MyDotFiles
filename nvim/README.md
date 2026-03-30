@@ -84,6 +84,38 @@ folds, use `zf` to define them per buffer or switch the method back temporarily 
 | `<leader>qs` | Leader | Halt macro playback via the NeoComposer macro module. |
 | `<leader>sm` | Telescope | Launch the Telescope macros picker for browsing and selecting stored macros. |
 
+## LSP migration verification
+
+After restarting Neovim, run these exact commands in a buffer for the filetype you are testing:
+
+```vim
+:checkhealth vim.lsp
+:lua vim.print(vim.lsp.get_clients({ bufnr = 0 }))
+:verbose nmap <leader>gd
+:verbose nmap <leader>rn
+:verbose nmap <leader>ca
+:verbose nmap <leader>th
+```
+
+Expected outcomes:
+
+* An active LSP client is listed for the current buffer when you open a supported filetype.
+* The `<leader>gd`, `<leader>rn`, `<leader>ca`, and `<leader>th` mappings resolve to the `LspAttach` mapping source in the `:verbose nmap` output.
+
+Mental model for troubleshooting:
+
+* Mason = installation state (is the server binary installed?).
+* `vim.lsp.enable()` = configured-to-run state (did Neovim enable the server config?).
+* `LspAttach` = runtime attachment state (did a client actually attach to this buffer?).
+
+Minimum filetypes to verify:
+
+* `lua`
+* `go`
+* `zig`
+
+Rust is verified separately through `rustaceanvim` instead of the general `vim.lsp.enable()` path.
+
 ## Installation
 
 ### Install Neovim
@@ -304,4 +336,3 @@ sudo dnf install -y gcc make git ripgrep fd-find unzip neovim
 sudo pacman -S --noconfirm --needed gcc make git ripgrep fd unzip neovim
 ```
 </details>
-
