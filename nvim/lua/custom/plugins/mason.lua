@@ -48,6 +48,11 @@ return {
           map('gD', vim.lsp.buf.declaration, '[G]oto [D]eclaration')
 
           local client = vim.lsp.get_client_by_id(event.data.client_id)
+          if vim.g.zig_lsp_debug_attach == true and vim.bo[event.buf].filetype == 'zig' then
+            local client_name = client and client.name or 'nil'
+            vim.notify(('[zig-lsp] LspAttach client=%s bufnr=%d'):format(client_name, event.buf), vim.log.levels.INFO)
+          end
+
           local ok_navic, navic = pcall(require, 'nvim-navic')
           if ok_navic and client and client.supports_method(vim.lsp.protocol.Methods.textDocument_documentSymbol) then
             navic.attach(client, event.buf)
@@ -135,12 +140,6 @@ return {
           root_dir = function(fname)
             return util.root_pattern('build.zig', 'zig.zon', '.git')(fname) or util.path.dirname(fname)
           end,
-          settings = {
-            zls = {
-              enable_inlay_hints = true,
-              -- zig_exe_path = "C:\\Program Files\\Zig\\zig.exe",
-            },
-          },
         },
         lua_ls = {
           settings = {
