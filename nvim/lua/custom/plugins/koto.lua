@@ -24,7 +24,9 @@ return {
   },
 
   -------------------------------------------------------------------------
-  -- 2) LSP: start koto-ls when opening a *.koto file (no lspconfig root)
+  -- 2) LSP: explicit manual start for koto-ls.
+  -- Exception: koto-ls is not managed by our Mason server table, so this
+  -- FileType-driven startup is intentionally kept as a one-off integration.
   -------------------------------------------------------------------------
   {
     'neovim/nvim-lspconfig', -- only for utilities; we won't call the deprecated root

@@ -158,6 +158,7 @@ return {
       ---------------------------------------------------------------------------
       -- Mason
       ---------------------------------------------------------------------------
+      -- Rule: Mason installs; Neovim LSP config enables; no parallel startup path.
       require('mason').setup()
 
       local ensure_tools = { 'stylua' }
