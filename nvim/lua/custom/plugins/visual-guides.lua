@@ -1,31 +1,86 @@
 return {
-  -- Rainbow delimiters using Treesitter
-  {
-    'HiPhish/rainbow-delimiters.nvim',
-    event = 'VeryLazy',
-    config = function()
-      local rainbow_delimiters = require 'rainbow-delimiters'
-      vim.g.rainbow_delimiters = {
-        strategy = {
-          [''] = rainbow_delimiters.strategy['global'],
-          rust = rainbow_delimiters.strategy['local'],
-        },
-        query = {
-          [''] = 'rainbow-delimiters',
-          rust = 'rainbow-delimiters',
-        },
-        highlight = {
-          'RainbowDelimiterRed',
-          'RainbowDelimiterYellow',
-          'RainbowDelimiterBlue',
-          'RainbowDelimiterOrange',
-          'RainbowDelimiterGreen',
-          'RainbowDelimiterViolet',
-          'RainbowDelimiterCyan',
-        },
-      }
-    end,
-  },
+  -- -- Rainbow delimiters using Treesitter
+  -- {
+  --   'HiPhish/rainbow-delimiters.nvim',
+  --   event = 'VeryLazy',
+  --   config = function()
+  --     local function warn_once(msg)
+  --       if vim.g.__rainbow_delimiters_warned then
+  --         return
+  --       end
+  --
+  --       vim.g.__rainbow_delimiters_warned = true
+  --       vim.schedule(function()
+  --         vim.notify(msg, vim.log.levels.WARN)
+  --       end)
+  --     end
+  --
+  --     local ok, rainbow_delimiters = pcall(require, 'rainbow-delimiters')
+  --     if not ok or type(rainbow_delimiters) ~= 'table' then
+  --       warn_once 'rainbow-delimiters.nvim is unavailable; skipping setup.'
+  --       return
+  --     end
+  --
+  --     local global_strategy = rainbow_delimiters.strategy and rainbow_delimiters.strategy['global']
+  --     local local_strategy = rainbow_delimiters.strategy and rainbow_delimiters.strategy['local']
+  --     if type(global_strategy) ~= 'function' or type(local_strategy) ~= 'function' then
+  --       warn_once 'rainbow-delimiters.nvim strategy API changed; skipping setup.'
+  --       return
+  --     end
+  --
+  --     local function safe_local_strategy(filetype)
+  --       return function(bufnr)
+  --         -- During session restore, always use the global strategy to avoid
+  --         -- local Treesitter-node range callbacks firing against unstable state.
+  --         if vim.g.session_restoring then
+  --           return global_strategy(bufnr)
+  --         end
+  --
+  --         local ok_local, result = pcall(local_strategy, bufnr)
+  --         if ok_local then
+  --           return result
+  --         end
+  --
+  --         warn_once(string.format('rainbow-delimiters local strategy failed for %s; falling back to global strategy.', filetype))
+  --         return global_strategy(bufnr)
+  --       end
+  --     end
+  --
+  --     vim.g.rainbow_delimiters = {
+  --       strategy = {
+  --         [''] = global_strategy,
+  --         rust = safe_local_strategy 'rust',
+  --       },
+  --       query = {
+  --         [''] = 'rainbow-delimiters',
+  --         rust = 'rainbow-delimiters',
+  --       },
+  --       highlight = {
+  --         'RainbowDelimiterRed',
+  --         'RainbowDelimiterYellow',
+  --         'RainbowDelimiterBlue',
+  --         'RainbowDelimiterOrange',
+  --         'RainbowDelimiterGreen',
+  --         'RainbowDelimiterViolet',
+  --         'RainbowDelimiterCyan',
+  --       },
+  --     }
+  --
+  --     -- If we're currently restoring a session, wait until restore completion
+  --     -- before forcing re-attachment, so initial Treesitter state can settle.
+  --     if vim.g.session_restoring then
+  --       vim.api.nvim_create_autocmd('User', {
+  --         pattern = 'AutoSessionRestoreDone',
+  --         once = true,
+  --         callback = function()
+  --           vim.defer_fn(function()
+  --             pcall(vim.cmd, 'silent! RainbowDelimitersEnable')
+  --           end, 50)
+  --         end,
+  --       })
+  --     end
+  --   end,
+  -- },
 
   -- Indentation guides
 
