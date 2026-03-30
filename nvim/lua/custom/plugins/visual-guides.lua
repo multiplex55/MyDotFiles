@@ -21,8 +21,8 @@ return {
         return
       end
 
-      local global_strategy = rainbow_delimiters.strategy and rainbow_delimiters.strategy.global
-      local local_strategy = rainbow_delimiters.strategy and rainbow_delimiters.strategy.local
+      local global_strategy = rainbow_delimiters.strategy and rainbow_delimiters.strategy['global']
+      local local_strategy = rainbow_delimiters.strategy and rainbow_delimiters.strategy['local']
       if type(global_strategy) ~= 'function' or type(local_strategy) ~= 'function' then
         warn_once 'rainbow-delimiters.nvim strategy API changed; skipping setup.'
         return
