@@ -2,8 +2,9 @@ return {
   { -- Highlight, edit, and navigate code
     'nvim-treesitter/nvim-treesitter',
     build = ':TSUpdate',
-    main = 'nvim-treesitter.configs', -- Sets main module to use for opts
-    -- [[ Configure Treesitter ]] See `:help nvim-treesitter`
+    -- Compatibility policy: Markdown rendering integrations require matching
+    -- Neovim + Treesitter query APIs (notably parser/query predicate helpers).
+    -- Guard markdown-dependent modules when parser/query APIs are unavailable.
     opts = {
       ensure_installed = {
         'nim_format_string',
@@ -37,6 +38,38 @@ return {
         disable = { 'ruby' },
       },
     },
+    config = function(_, opts)
+      local ok_parsers, parsers = pcall(require, 'nvim-treesitter.parsers')
+      local markdown_parser_ready = false
+
+      if ok_parsers and type(parsers.has_parser) == 'function' then
+        markdown_parser_ready = parsers.has_parser 'markdown' and parsers.has_parser 'markdown_inline'
+      end
+
+      vim.g.markdown_treesitter_ready = markdown_parser_ready
+
+      if not markdown_parser_ready then
+        opts.highlight = opts.highlight or {}
+        local highlight_disable = opts.highlight.disable or {}
+        if type(highlight_disable) == 'string' then
+          highlight_disable = { highlight_disable }
+        end
+        table.insert(highlight_disable, 'markdown')
+        table.insert(highlight_disable, 'markdown_inline')
+        opts.highlight.disable = highlight_disable
+
+        opts.indent = opts.indent or {}
+        local indent_disable = opts.indent.disable or {}
+        if type(indent_disable) == 'string' then
+          indent_disable = { indent_disable }
+        end
+        table.insert(indent_disable, 'markdown')
+        table.insert(indent_disable, 'markdown_inline')
+        opts.indent.disable = indent_disable
+      end
+
+      require('nvim-treesitter.configs').setup(opts)
+    end,
     -- There are additional nvim-treesitter modules that you can use to interact
     -- with nvim-treesitter. You should go explore a few and see what interests you:
     --

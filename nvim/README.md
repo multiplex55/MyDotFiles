@@ -116,6 +116,37 @@ Minimum filetypes to verify:
 
 Rust is verified separately through `rustaceanvim` instead of the general `vim.lsp.enable()` path.
 
+## Neovim troubleshooting
+
+### Markdown crash triage
+
+If markdown buffers crash with `attempt to call method 'range' (a nil value)`, use this quick triage:
+
+* **Error signature**: `attempt to call method 'range' (a nil value)`
+* **Reproduction trigger**: opening any `*.md` buffer
+* **Involved components**:
+  * `vim.treesitter`
+  * `nvim-treesitter/query_predicates.lua`
+  * `render-markdown.nvim`
+  * `obsidian.nvim`
+
+This usually indicates an API compatibility mismatch between Neovim core, Treesitter query helpers, and markdown rendering integrations.
+
+### Markdown parser/query compatibility policy
+
+Markdown rendering requires compatible Neovim + Treesitter query APIs. If parser/query checks fail, markdown rendering should stay disabled for affected buffers and show a one-time warning.
+
+### Lockfile and known-good tuple
+
+This repository intentionally omits `lazy-lock.json`, so plugin revisions are not pinned here.
+When validating a working markdown stack, record and pin revisions in your own fork/environment.
+Known-good reference tuple captured on 2026-03-31:
+
+* `neovim` tag `v0.10.4` (`ddce846cef04fb49214bc9f8a75900e9a6d45191`)
+* `nvim-treesitter` `7caec274fd19c12b55902a5b795100d21531391f`
+* `render-markdown.nvim` `c7188a8f9d2953696b6303caccbf39c51fa2c1b1`
+* `obsidian.nvim` `14e0427bef6c55da0d63f9a313fd9941be3a2479`
+
 ## Zig ownership (single source of truth)
 
 Zig language-server ownership lives in `lua/custom/plugins/mason.lua` under the `servers.zls` table.
