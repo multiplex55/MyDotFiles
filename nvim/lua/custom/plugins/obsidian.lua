@@ -1,16 +1,16 @@
+local markdown_runtime = require 'custom.utils.markdown_runtime'
+
+local workspace_paths = {
+  'C:\\Users\\multi\\My Drive\\Obsidian\\MyNotes',
+}
+
+vim.g.custom_obsidian_workspace_paths = workspace_paths
+
 return {
   'obsidian-nvim/obsidian.nvim',
   version = '*', -- recommended, use latest release instead of latest commit
   lazy = true,
-  ft = 'markdown',
-  -- Replace the above line with this if you only want to load obsidian.nvim for markdown files in your vault:
-  -- event = {
-  --   -- If you want to use the home shortcut '~' here you need to call 'vim.fn.expand'.
-  --   -- E.g. "BufReadPre " .. vim.fn.expand "~" .. "/my-vault/*.md"
-  --   -- refer to `:h file-pattern` for more examples
-  --   "BufReadPre path/to/my-vault/*.md",
-  --   "BufNewFile path/to/my-vault/*.md",
-  -- },
+  event = markdown_runtime.obsidian_events(),
   dependencies = {
     -- Required.
     'nvim-lua/plenary.nvim',
@@ -23,10 +23,13 @@ return {
     workspaces = {
       {
         name = 'personal',
-        path = 'C:\\Users\\multi\\My Drive\\Obsidian\\MyNotes',
+        path = workspace_paths[1],
       },
     },
 
+    -- Crash-signature guard: keep Obsidian scoped to vault buffers only to
+    -- prevent dual activation races with render-markdown async footer/backlink
+    -- handlers in non-vault markdown files.
     -- see below for full list of options 👇
   },
 }
