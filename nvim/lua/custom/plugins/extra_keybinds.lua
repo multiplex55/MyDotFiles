@@ -1238,6 +1238,15 @@ function M.setup()
     end
   end
 
+  local function ensure_executable(exe, missing_msg)
+    if vim.fn.executable(exe) == 1 then
+      return true
+    end
+
+    vim.notify(missing_msg or (exe .. ' executable not found in PATH'), vim.log.levels.WARN)
+    return false
+  end
+
   vim.api.nvim_create_autocmd('FileType', {
     pattern = 'zig',
     callback = function(ev)
@@ -1307,30 +1316,66 @@ function M.setup()
       map('<leader>cg', '<Nop>', '[C]ode [G]o')
 
       map('<leader>cgr', function()
-        run_build_cmd({ 'go', 'run', '.' }, 'Go: run package')
-      end, '[C]ode [G]o [R]un')
+        if not ensure_executable('go', 'go executable not found in PATH') then
+          return
+        end
+        run_build_cmd({ 'go', 'run', '.' }, 'Go: run')
+      end, '[C]ode [G]o [R]un current package (go run .)')
 
       map('<leader>cgb', function()
-        run_build_cmd({ 'go', 'build', './...' }, 'Go: build packages')
-      end, '[C]ode [G]o [B]uild')
+        if not ensure_executable('go', 'go executable not found in PATH') then
+          return
+        end
+        run_build_cmd({ 'go', 'build', './...' }, 'Go: build')
+      end, '[C]ode [G]o [B]uild workspace packages (go build ./...)')
 
       map('<leader>cgt', function()
-        run_build_cmd({ 'go', 'test', './...' }, 'Go: test packages')
-      end, '[C]ode [G]o [T]est')
+        if not ensure_executable('go', 'go executable not found in PATH') then
+          return
+        end
+        run_build_cmd({ 'go', 'test', './...' }, 'Go: test')
+      end, '[C]ode [G]o [T]est workspace packages (go test ./...)')
 
       map('<leader>cgT', function()
+        if not ensure_executable('go', 'go executable not found in PATH') then
+          return
+        end
         vim.cmd 'write'
-        run_build_cmd({ 'go', 'test', '.' }, 'Go: test current package')
-      end, '[C]ode [G]o [T]est current package')
+        run_build_cmd({ 'go', 'test', '.' }, 'Go: test')
+      end, '[C]ode [G]o [T]est current package (go test .)')
 
       map('<leader>cgf', function()
         vim.cmd 'write'
-        run_build_cmd({ 'gofmt', '-w', vim.fn.expand '%:p' }, 'Go: format current file')
-      end, '[C]ode [G]o [F]ormat')
+        local ok, conform = pcall(require, 'conform')
+        if ok then
+          conform.format { lsp_format = 'fallback' }
+          return
+        end
+
+        if not ensure_executable('gofmt', 'gofmt executable not found in PATH') then
+          return
+        end
+        run_build_cmd({ 'gofmt', '-w', vim.fn.expand '%:p' }, 'Go: fmt')
+      end, '[C]ode [G]o [F]ormat current file (Conform/LSP fallback, else gofmt -w)')
 
       map('<leader>cgv', function()
-        run_build_cmd({ 'go', 'vet', './...' }, 'Go: vet packages')
-      end, '[C]ode [G]o [V]et')
+        if not ensure_executable('go', 'go executable not found in PATH') then
+          return
+        end
+        run_build_cmd({ 'go', 'vet', './...' }, 'Go: vet')
+      end, '[C]ode [G]o [V]et workspace packages (go vet ./...)')
+
+      map('<leader>cgd', function()
+        if not ensure_executable('go', 'go executable not found in PATH') then
+          return
+        end
+        local symbol = vim.fn.expand '<cword>'
+        if symbol == nil or symbol == '' then
+          vim.notify('No symbol under cursor to inspect', vim.log.levels.WARN)
+          return
+        end
+        run_build_cmd({ 'go', 'doc', symbol }, 'Go: doc')
+      end, '[C]ode [G]o [D]oc symbol under cursor (go doc <cword>)')
     end,
   })
 
