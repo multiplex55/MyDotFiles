@@ -1289,6 +1289,52 @@ function M.setup()
   })
 
   -- =========================
+  -- [Code Go] keymaps
+  -- =========================
+
+  vim.api.nvim_create_autocmd('FileType', {
+    pattern = { 'go', 'gomod', 'gowork', 'gotmpl' },
+    callback = function(ev)
+      local buf = ev.buf
+      register_buffer_groups(buf, {
+        { '<leader>cg', group = '[C]ode [G]o', mode = 'n' },
+      })
+
+      local function map(lhs, rhs, desc)
+        vim.keymap.set('n', lhs, rhs, { buffer = buf, desc = desc })
+      end
+
+      map('<leader>cg', '<Nop>', '[C]ode [G]o')
+
+      map('<leader>cgr', function()
+        run_build_cmd({ 'go', 'run', '.' }, 'Go: run package')
+      end, '[C]ode [G]o [R]un')
+
+      map('<leader>cgb', function()
+        run_build_cmd({ 'go', 'build', './...' }, 'Go: build packages')
+      end, '[C]ode [G]o [B]uild')
+
+      map('<leader>cgt', function()
+        run_build_cmd({ 'go', 'test', './...' }, 'Go: test packages')
+      end, '[C]ode [G]o [T]est')
+
+      map('<leader>cgT', function()
+        vim.cmd 'write'
+        run_build_cmd({ 'go', 'test', '.' }, 'Go: test current package')
+      end, '[C]ode [G]o [T]est current package')
+
+      map('<leader>cgf', function()
+        vim.cmd 'write'
+        run_build_cmd({ 'gofmt', '-w', vim.fn.expand '%:p' }, 'Go: format current file')
+      end, '[C]ode [G]o [F]ormat')
+
+      map('<leader>cgv', function()
+        run_build_cmd({ 'go', 'vet', './...' }, 'Go: vet packages')
+      end, '[C]ode [G]o [V]et')
+    end,
+  })
+
+  -- =========================
   -- [Code AHK] keymaps
   -- =========================
 
