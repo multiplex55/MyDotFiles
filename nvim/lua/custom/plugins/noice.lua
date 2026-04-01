@@ -11,6 +11,7 @@ return {
     },
     opts = function()
       local border = 'rounded'
+      local notify_opts = require('custom.config.notify').resolve()
 
       return {
         cmdline = {
@@ -32,6 +33,11 @@ return {
           lsp_doc_border = true,
         },
         views = {
+          notify = {
+            replace = true,
+            merge = true,
+            top_down = notify_opts.top_down,
+          },
           cmdline_popup = {
             border = {
               style = border,
