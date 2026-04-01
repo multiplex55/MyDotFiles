@@ -2,6 +2,9 @@ local markdown_runtime = require 'custom.utils.markdown_runtime'
 
 local M = {}
 
+local markdown_error_interceptor_installed = false
+local fallback_to_basic_markdown
+
 local MARKDOWN_FILETYPES = {
   markdown = true,
   rmd = true,
@@ -33,6 +36,39 @@ local function is_treesitter_failure(err)
   return message:find('treesitter') and message:find('query') and message:find('error')
 end
 
+
+local function is_treesitter_range_nil_callback_error(message)
+  local normalized = tostring(message or ''):lower()
+  return normalized:find('error executing lua callback', 1, true)
+    and normalized:find('vim/treesitter/highlighter.lua', 1, true)
+    and normalized:find('range', 1, true)
+    and normalized:find('nil', 1, true)
+end
+
+local function install_markdown_runtime_error_interceptor()
+  if markdown_error_interceptor_installed then
+    return
+  end
+
+  markdown_error_interceptor_installed = true
+
+  local original_notify = vim.notify
+  local interception_active = false
+
+  vim.notify = function(msg, level, opts)
+    if not interception_active and is_treesitter_range_nil_callback_error(msg) then
+      local bufnr = vim.api.nvim_get_current_buf()
+      if is_markdown_buf(bufnr) then
+        interception_active = true
+        fallback_to_basic_markdown(bufnr, 'treesitter decoration-provider range() nil crash')
+        interception_active = false
+      end
+    end
+
+    return original_notify(msg, level, opts)
+  end
+end
+
 local function notify_once(bufnr, reason)
   if vim.b[bufnr].markdown_recovery_notified then
     return
@@ -56,7 +92,7 @@ local function disable_render_markdown(bufnr)
   end)
 end
 
-local function fallback_to_basic_markdown(bufnr, reason)
+fallback_to_basic_markdown = function(bufnr, reason)
   vim.b[bufnr].markdown_recovery_failed = true
 
   pcall(vim.treesitter.stop, bufnr)
@@ -80,6 +116,8 @@ local function safe_start_markdown_ui(bufnr)
     return false
   end
 
+  -- pcall() only catches startup/query failures; decoration-provider callback crashes
+  -- can happen later in the highlighter loop, so we also intercept runtime errors.
   local ok_ts, ts_err = pcall(vim.treesitter.start, bufnr)
   if not ok_ts and is_treesitter_failure(ts_err) then
     fallback_to_basic_markdown(bufnr, 'treesitter failure signature')
@@ -121,6 +159,8 @@ function M.recover(bufnr)
 end
 
 function M.setup()
+  install_markdown_runtime_error_interceptor()
+
   local group = vim.api.nvim_create_augroup('custom_markdown_crash_recovery', { clear = true })
 
   vim.api.nvim_create_autocmd('FileType', {
