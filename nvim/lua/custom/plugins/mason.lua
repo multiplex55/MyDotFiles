@@ -54,11 +54,11 @@ return {
           end
 
           local ok_navic, navic = pcall(require, 'nvim-navic')
-          if ok_navic and client and client.supports_method(vim.lsp.protocol.Methods.textDocument_documentSymbol) then
+          if ok_navic and client and client:supports_method(vim.lsp.protocol.Methods.textDocument_documentSymbol) then
             navic.attach(client, event.buf)
           end
 
-          if client and client.supports_method(vim.lsp.protocol.Methods.textDocument_documentHighlight) then
+          if client and client:supports_method(vim.lsp.protocol.Methods.textDocument_documentHighlight) then
             local aug = vim.api.nvim_create_augroup('kickstart-lsp-highlight', { clear = false })
             vim.api.nvim_create_autocmd({ 'CursorHold', 'CursorHoldI' }, { buffer = event.buf, group = aug, callback = vim.lsp.buf.document_highlight })
             vim.api.nvim_create_autocmd({ 'CursorMoved', 'CursorMovedI' }, { buffer = event.buf, group = aug, callback = vim.lsp.buf.clear_references })
@@ -71,7 +71,7 @@ return {
             })
           end
 
-          if client and client.supports_method(vim.lsp.protocol.Methods.textDocument_inlayHint) then
+          if client and client:supports_method(vim.lsp.protocol.Methods.textDocument_inlayHint) then
             map('<leader>th', function()
               local enabled = vim.lsp.inlay_hint.is_enabled { bufnr = event.buf }
               vim.lsp.inlay_hint.enable(not enabled, { bufnr = event.buf })
