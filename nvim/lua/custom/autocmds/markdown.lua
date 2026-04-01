@@ -88,6 +88,7 @@ end
 
 local function clear_recovery_state(bufnr)
   vim.b[bufnr].markdown_recovery_failed = false
+  vim.b[bufnr].markdown_recovery_reason = nil
   vim.b[bufnr].markdown_recover_requested = false
   vim.b[bufnr].markdown_ts_quarantined = false
   vim.b[bufnr].markdown_recovery_notified = false
@@ -102,6 +103,7 @@ end
 
 fallback_to_basic_markdown = function(bufnr, reason)
   vim.b[bufnr].markdown_recovery_failed = true
+  vim.b[bufnr].markdown_recovery_reason = reason
   vim.b[bufnr].markdown_ts_quarantined = true
 
   pcall(vim.treesitter.stop, bufnr)
@@ -130,6 +132,12 @@ local function safe_start_markdown_ui(bufnr, opts)
   end
 
   if not markdown_runtime.can_enable_render_markdown(bufnr) and not explicit_recover then
+    return false
+  end
+
+  local compatibility = markdown_runtime.markdown_stack_compatible(bufnr)
+  if not compatibility.ok then
+    fallback_to_basic_markdown(bufnr, 'compatibility preflight: ' .. compatibility.reason)
     return false
   end
 
@@ -168,7 +176,8 @@ function M.recover(bufnr)
   end
 
   if not vim.b[bufnr].markdown_recovery_failed then
-    vim.notify('MarkdownRecover did not enable markdown UI for this buffer (runtime safety gate).', vim.log.levels.WARN, {
+    local reason = vim.b[bufnr].markdown_recovery_reason or 'runtime safety gate'
+    vim.notify('MarkdownRecover did not enable markdown UI for this buffer (' .. reason .. ').', vim.log.levels.WARN, {
       title = 'MarkdownRecover',
     })
   end
