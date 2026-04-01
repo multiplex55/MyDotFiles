@@ -136,6 +136,15 @@ This usually indicates an API compatibility mismatch between Neovim core, Treesi
 
 Markdown rendering requires compatible Neovim + Treesitter query APIs. If parser/query checks fail, markdown rendering should stay disabled for affected buffers and show a one-time warning.
 
+`safe_start_markdown_ui()` now runs a markdown preflight compatibility gate before `vim.treesitter.start()` and quarantines the buffer immediately if the stack is incompatible. The preflight returns structured results with reason codes (`{ ok = false, reason = "<code>" }`) so fallback messages are specific.
+
+Inspect active preflight/fallback reason codes in a markdown buffer with:
+
+```vim
+:echo get(b:, 'markdown_recovery_reason', '')
+:lua vim.print(require('custom.utils.markdown_runtime').markdown_stack_compatible(0))
+```
+
 ### Markdown crash recovery
 
 A markdown-only autocmd now wraps markdown UI startup (Treesitter + `render-markdown.nvim`) in `pcall` so parser/query crashes do not break editing.
