@@ -136,6 +136,19 @@ This usually indicates an API compatibility mismatch between Neovim core, Treesi
 
 Markdown rendering requires compatible Neovim + Treesitter query APIs. If parser/query checks fail, markdown rendering should stay disabled for affected buffers and show a one-time warning.
 
+### Markdown crash recovery
+
+A markdown-only autocmd now wraps markdown UI startup (Treesitter + `render-markdown.nvim`) in `pcall` so parser/query crashes do not break editing.
+
+When Neovim detects a Treesitter failure signature (for example `range` nil or query directive errors), it applies a per-buffer fallback:
+
+* Stops Treesitter for the buffer (`vim.treesitter.stop(bufnr)`).
+* Disables `render-markdown.nvim` for that buffer.
+* Forces regular markdown syntax highlighting so basic editing remains available.
+* Emits a single deduplicated warning for that buffer/session with remediation hints (`:TSUpdate`, plugin update, and restart after parser sync).
+
+Use `:MarkdownRecover` to re-attempt enabling Treesitter + render-markdown in the current markdown buffer without reopening Neovim.
+
 ### Lockfile and known-good tuple
 
 This repository intentionally omits `lazy-lock.json`, so plugin revisions are not pinned here.
