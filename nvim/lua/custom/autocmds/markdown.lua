@@ -78,11 +78,19 @@ local function notify_once(bufnr, reason)
   vim.notify(
     'Markdown UI fallback enabled for this buffer ('
       .. reason
-      .. '). Treesitter highlighting and render-markdown were disabled. '
-      .. 'Use :MarkdownRecover after running :TSUpdate / plugin updates, then restart Neovim after parser sync if needed.',
+      .. '). Treesitter highlighting and render-markdown were disabled; '
+      .. 'buffer quarantined until :MarkdownRecover.',
     vim.log.levels.WARN,
     { title = 'Markdown crash recovery' }
   )
+end
+
+
+local function clear_recovery_state(bufnr)
+  vim.b[bufnr].markdown_recovery_failed = false
+  vim.b[bufnr].markdown_recover_requested = false
+  vim.b[bufnr].markdown_ts_quarantined = false
+  vim.b[bufnr].markdown_recovery_notified = false
 end
 
 local function disable_render_markdown(bufnr)
@@ -94,6 +102,7 @@ end
 
 fallback_to_basic_markdown = function(bufnr, reason)
   vim.b[bufnr].markdown_recovery_failed = true
+  vim.b[bufnr].markdown_ts_quarantined = true
 
   pcall(vim.treesitter.stop, bufnr)
   disable_render_markdown(bufnr)
@@ -103,16 +112,24 @@ fallback_to_basic_markdown = function(bufnr, reason)
   notify_once(bufnr, reason)
 end
 
-local function safe_start_markdown_ui(bufnr)
+local function safe_start_markdown_ui(bufnr, opts)
+  opts = opts or {}
+  local explicit_recover = opts.explicit_recover == true
   if not is_markdown_buf(bufnr) then
     return false
   end
 
-  if vim.b[bufnr].markdown_recovery_failed and not vim.b[bufnr].markdown_recover_requested then
+  if vim.b[bufnr].markdown_ts_quarantined and not explicit_recover then
+    pcall(vim.treesitter.stop, bufnr)
+    disable_render_markdown(bufnr)
     return false
   end
 
-  if not markdown_runtime.can_enable_render_markdown(bufnr) and not vim.b[bufnr].markdown_recover_requested then
+  if vim.b[bufnr].markdown_recovery_failed and not explicit_recover then
+    return false
+  end
+
+  if not markdown_runtime.can_enable_render_markdown(bufnr) and not explicit_recover then
     return false
   end
 
@@ -135,8 +152,7 @@ local function safe_start_markdown_ui(bufnr)
     return false
   end
 
-  vim.b[bufnr].markdown_recovery_failed = false
-  vim.b[bufnr].markdown_recover_requested = false
+  clear_recovery_state(bufnr)
 
   return true
 end
@@ -145,7 +161,7 @@ function M.recover(bufnr)
   bufnr = bufnr or vim.api.nvim_get_current_buf()
   vim.b[bufnr].markdown_recover_requested = true
 
-  local ok = safe_start_markdown_ui(bufnr)
+  local ok = safe_start_markdown_ui(bufnr, { explicit_recover = true })
   if ok then
     vim.notify('Markdown UI recovery succeeded for current buffer.', vim.log.levels.INFO, { title = 'MarkdownRecover' })
     return
