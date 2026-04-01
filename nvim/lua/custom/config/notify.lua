@@ -2,8 +2,8 @@ local M = {}
 
 local defaults = {
   timeout = 3000,
-  stages = 'fade_in_slide_out',
-  render = 'default',
+  stages = 'fade_in_slide_out', -- also: 'fade', 'slide', 'static', 'fade_in_slide_out'
+  render = 'default', -- also: 'minimal', 'simple', 'compact', 'wrapped-compact'
   background_colour = '#000000',
   top_down = true,
   fps = 60,
