@@ -21,6 +21,64 @@ When the Noice-powered command-line menu offers a suggestion you want to accept,
 typed, so you can continue working muscle memory for write/quit commands like `:w` or
 `:wq` without having to dismiss completion entries first.
 
+### Notification/Dialog Customization
+
+Notification behavior is centralized in `lua/custom/config/notify.lua`.
+The supported override table is `vim.g.custom_notify_opts` (a global Lua table read by
+`require('custom.config.notify').resolve()`).
+
+Define overrides in your `init.lua` (or another early-loaded config file) before lazy-loaded
+UI plugins start emitting notifications:
+
+```lua
+-- init.lua (or a file sourced very early during startup)
+vim.g.custom_notify_opts = {
+  timeout = 1500,
+  render = 'compact',
+  stages = 'fade',
+  top_down = false,
+}
+```
+
+Current default values and effects:
+
+* `timeout = 3000`: notification lifetime in milliseconds before auto-dismiss.
+* `stages = 'fade_in_slide_out'`: animation style used by `nvim-notify`
+  (`'fade'`, `'slide'`, `'static'`, `'fade_in_slide_out'` are supported here).
+* `render = 'default'`: notification body layout (`'minimal'`, `'simple'`, `'compact'`,
+  `'wrapped-compact'`, and `'default'`).
+* `background_colour = '#000000'`: fallback background color used by the notify window.
+* `top_down = true`: stack direction for newest/oldest notifications.
+* `fps = 60`: animation frame rate.
+* `minimum_width = 20`: minimum floating notification width.
+* `minimum_height = 1`: minimum floating notification height.
+* `max_width = 120`: maximum floating notification width.
+* `max_height = 20`: maximum floating notification height.
+
+Recommended tuning:
+
+* **Short-lived, high-volume signals** (format/save/info spam):
+  * `timeout = 800..1800`
+  * `render = 'compact'` or `'minimal'`
+  * `stages = 'fade'` or `'static'` (lower motion, less visual churn)
+* **Persistent or action-oriented messages** (errors/manual workflows):
+  * `timeout = 4000..10000` (or higher as needed)
+  * `render = 'default'` or `'wrapped-compact'` for readability
+  * `stages = 'fade_in_slide_out'` for stronger visual emphasis
+
+Noice/notify interplay:
+
+* `folke/noice.nvim` routes `messages`, `errors`, and `warnings` to the `notify` view.
+* `rcarriga/nvim-notify` is responsible for rendering, animation stages, sizing, and timeout.
+* `top_down` is shared: Noice view ordering (`views.notify.top_down`) mirrors the notify config,
+  so one setting keeps message flow consistent across both plugins.
+
+Troubleshooting quick check:
+
+* If updates do not appear, verify startup order and ensure `notify.setup()` runs before plugins
+  that emit frequent early notifications.
+* Confirm `vim.g.custom_notify_opts` is defined before the notify/noice plugin setup paths execute.
+
 ## Custom Keymaps
 
 ### Folding defaults
