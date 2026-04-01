@@ -145,9 +145,9 @@ return {
           if not ok or not neoclip or not neoclip.default then
             return
           end
-          neoclip.default({
+          neoclip.default {
             extra = 'unnamed',
-          })
+          }
         end,
         desc = '[S]earch [Y]ank history',
       },
@@ -160,9 +160,9 @@ return {
           if not ok or not neoclip or not neoclip.plus then
             return
           end
-          neoclip.plus({
+          neoclip.plus {
             extra = 'unnamed',
-          })
+          }
         end,
         desc = '[S]earch system [Y]anks',
       },
@@ -188,7 +188,6 @@ return {
         desc = '[S]earch dynamic [S]ymbols',
       },
     },
-    branch = '0.1.x',
     dependencies = {
       'nvim-lua/plenary.nvim',
       { -- If encountering errors, see telescope-fzf-native README for installation instructions

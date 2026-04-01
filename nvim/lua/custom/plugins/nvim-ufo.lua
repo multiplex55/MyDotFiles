@@ -47,11 +47,6 @@ return {
 
       local default_state = vim.g.ufo_default_fold_state or 'open'
 
-      local hover_handler = vim.lsp.with(vim.lsp.handlers.hover, {
-        border = 'rounded',
-        title = 'Hover',
-      })
-
       local function apply_default_state(bufnr, winid)
         if should_skip(bufnr, winid) then
           return
@@ -114,14 +109,15 @@ return {
       -- Keymaps
       vim.keymap.set('n', 'zR', ufo.openAllFolds, { desc = 'UFO: Open all folds' })
       vim.keymap.set('n', 'zM', ufo.closeAllFolds, { desc = 'UFO: Close all folds' })
-      vim.keymap.set('n', 'zp', function()
-        local winid = ufo.peekFoldedLinesUnderCursor()
-        if not winid then
-          local bufnr = vim.api.nvim_get_current_buf()
-          local params = vim.lsp.util.make_position_params()
-          vim.lsp.buf_request(bufnr, 'textDocument/hover', params, hover_handler)
-        end
-      end, { desc = 'UFO: Peek fold under cursor' })
+vim.keymap.set('n', 'zp', function()
+  local winid = ufo.peekFoldedLinesUnderCursor()
+  if not winid then
+    vim.lsp.buf.hover {
+      border = 'rounded',
+      title = 'Hover',
+    }
+  end
+end, { desc = 'UFO: Peek fold under cursor' })
     end,
   },
 }
