@@ -1,4 +1,13 @@
 -- lua/custom/plugins/vim-go.lua
+-- vim-go command cheat sheet:
+-- - :GoRun — run the current file/package entrypoint.
+-- - :GoTest / :GoTestFunc / :GoTestFile — run tests for package, function, or file scope.
+-- - :GoBuild / :GoInstall — compile current package or compile-and-install it.
+-- - :GoFmt / :GoImports — format code and normalize imports.
+-- - :GoDef / :GoDoc / :GoImplements / :GoReferrers — jump to defs/docs and inspect relationships.
+-- - :GoRename — rename symbol references through supported backend.
+-- - :GoDebugStart / :GoDebugTest / :GoDebugContinue — start and control debugger session flow.
+-- - :GoMetaLinter — run configured lint checks for current package.
 return {
   {
     'fatih/vim-go',
