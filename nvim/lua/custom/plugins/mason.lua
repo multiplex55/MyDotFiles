@@ -135,6 +135,7 @@ return {
 
       local servers = {
         gopls = {
+          filetypes = { 'go', 'gomod', 'gowork', 'gotmpl' },
           root_dir = function(fname)
             return util.root_pattern('go.work', 'go.mod', '.git')(fname) or util.path.dirname(fname)
           end,
