@@ -135,6 +135,7 @@ return {
 
       local servers = {
         gopls = {},
+
         nim_langserver = {}, -- aliased to 'nimls' below
         zls = {
           root_dir = function(fname)
@@ -196,6 +197,26 @@ return {
 
         vim.lsp.config(server_name, merged_config)
         vim.lsp.enable(server_name)
+      end
+
+      ---------------------------------------------------------------------------
+      -- Custom non-Mason servers
+      ---------------------------------------------------------------------------
+      do
+        local ok, ahk = pcall(require, 'custom.ahk2')
+        if ok then
+          local ahk_config, err = ahk.build_config()
+          if ahk_config then
+            ahk_config.capabilities = vim.tbl_deep_extend('force', {}, capabilities, ahk_config.capabilities or {})
+
+            vim.lsp.config('ahk2', ahk_config)
+            vim.lsp.enable 'ahk2'
+          else
+            vim.schedule(function()
+              vim.notify(err, vim.log.levels.WARN)
+            end)
+          end
+        end
       end
     end,
   },
