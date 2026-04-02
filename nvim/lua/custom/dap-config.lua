@@ -1,4 +1,5 @@
 local dap = require 'dap'
+local save_utils = require 'custom.utils.save'
 
 local rust_dap_initialized = false
 
@@ -80,6 +81,9 @@ dap.configurations.rust = {
     type = 'codelldb', --rust
     request = 'launch',
     program = function()
+      if not save_utils.write_all() then
+        return nil
+      end
       local uv = vim.uv or vim.loop
       local cwd = vim.fn.getcwd()
       local exe_name = vim.fn.fnamemodify(cwd, ':t')
@@ -160,6 +164,9 @@ dap.configurations.zig = {
     type = 'codelldb',
     request = 'launch',
     program = function()
+      if not save_utils.write_all() then
+        return nil
+      end
       -- Build a temporary exe for the current file, then debug it
       local src = vim.fn.expand '%:p'
       local out = vim.fn.fnamemodify(src, ':r') .. '.exe'
@@ -251,6 +258,9 @@ vim.fn.sign_define('DapBreakpointCondition', { text = '🔵', texthl = '', lineh
 local map = vim.keymap.set
 
 map('n', '<leader>cdd', function()
+  if not save_utils.write_all() then
+    return
+  end
   dap.continue()
 end, { desc = '[C]ode [D]ebug Start/Continue' })
 map('n', '<leader>cdt', function()

@@ -32,6 +32,7 @@ return {
     'neovim/nvim-lspconfig', -- only for utilities; we won't call the deprecated root
     lazy = false,
     init = function()
+      local save_utils = require 'custom.utils.save'
       -- Make sure *.koto is recognized
       vim.filetype.add { extension = { koto = 'koto' } }
 
@@ -112,6 +113,9 @@ return {
 
           -- try Overseer first; fall back to a bottom terminal split
           local function run_overseer(cmd, args, cwd)
+            if not save_utils.write_all() then
+              return false
+            end
             local ok, overseer = pcall(require, 'overseer')
             if not ok then
               return false
@@ -128,6 +132,9 @@ return {
           end
 
           local function term_run(cmdline)
+            if not save_utils.write_all() then
+              return
+            end
             vim.cmd('botright 12split | terminal ' .. cmdline)
             vim.cmd 'startinsert'
           end
