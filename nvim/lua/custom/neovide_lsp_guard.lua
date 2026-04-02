@@ -1,5 +1,5 @@
 -- In Neovide, some UI/plugins may call LSP before the buffer is attached.
--- Queue those textDocument/* calls until LspAttach to avoid ocamllsp's banner.
+-- Queue those textDocument/* calls until LspAttach to avoid early UI notifications.
 if not vim.g.neovide then
   return
 end
