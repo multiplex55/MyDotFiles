@@ -1,4 +1,5 @@
 local M = {}
+local save_utils = require 'custom.utils.save'
 
 local function get_lsp_util()
   local ok, util = pcall(require, 'lspconfig.util')
@@ -107,6 +108,9 @@ function M.format_buffer(bufnr)
 end
 
 function M.run_overseer(cmd, args, cwd)
+  if not save_utils.write_all() then
+    return false
+  end
   local ok, overseer = pcall(require, 'overseer')
   if not ok then
     return false
@@ -123,6 +127,9 @@ function M.run_overseer(cmd, args, cwd)
 end
 
 function M.term_run(cmd, args, cwd)
+  if not save_utils.write_all() then
+    return
+  end
   cwd = cwd or vim.fn.getcwd()
   vim.cmd 'botright 12split'
   local win = vim.api.nvim_get_current_win()

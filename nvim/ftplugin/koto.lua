@@ -1,5 +1,6 @@
 -- ftplugin/koto.lua
 local buf = vim.api.nvim_get_current_buf()
+local save_utils = require 'custom.utils.save'
 
 -- Optional: Which-Key v3 group (safe no-op if wk missing/old)
 local function add_wk_group(target_buf)
@@ -31,6 +32,9 @@ end
 
 -- Prefer Overseer if available; fallback to terminal split otherwise
 local function run_overseer(cmd, args, cwd)
+  if not save_utils.write_all() then
+    return false
+  end
   local ok, overseer = pcall(require, 'overseer')
   if not ok then
     return false
@@ -42,6 +46,9 @@ local function run_overseer(cmd, args, cwd)
 end
 
 local function term_run(cmdline)
+  if not save_utils.write_all() then
+    return
+  end
   vim.cmd('botright 12split | terminal ' .. cmdline)
   vim.cmd 'startinsert'
 end
