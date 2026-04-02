@@ -134,7 +134,12 @@ return {
       local util = require 'lspconfig.util' -- safe submodule for root helpers
 
       local servers = {
-        gopls = {},
+        gopls = {
+          root_dir = function(fname)
+            return util.root_pattern('go.work', 'go.mod', '.git')(fname) or util.path.dirname(fname)
+          end,
+          single_file_support = true,
+        },
         nim_langserver = {}, -- aliased to 'nimls' below
         zls = {
           root_dir = function(fname)
