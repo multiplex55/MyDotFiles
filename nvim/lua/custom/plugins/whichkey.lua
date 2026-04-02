@@ -76,22 +76,6 @@ return {
           end,
         },
         {
-          '<leader>cR',
-          group = '[c]ode [R]hai',
-          mode = { 'n', 'x' },
-          cond = function()
-            return vim.bo.filetype == 'rhai'
-          end,
-        },
-        {
-          '<leader>ck',
-          group = '[c]ode [k]oto',
-          mode = { 'n' },
-          cond = function()
-            return vim.bo.filetype == 'koto'
-          end,
-        },
-        {
           '<leader>d',
           group = '[d]ocument and dashboard',
         },

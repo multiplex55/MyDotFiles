@@ -171,13 +171,7 @@ vim.filetype.add {
   },
 }
 
-vim.filetype.add {
-  extension = { koto = 'koto' },
-}
 
-vim.filetype.add {
-  extension = { rhai = 'rhai' },
-}
 
 if vim.fn.has 'win32' == 1 then
   -- use forward slashes on Windows
