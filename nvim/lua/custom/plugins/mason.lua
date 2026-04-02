@@ -194,14 +194,21 @@ return {
         automatic_enable = false,
       }
 
+      local has_lsp_enable = type(vim.lsp.config) == 'function' and type(vim.lsp.enable) == 'function'
+      local lspconfig = has_lsp_enable and nil or require 'lspconfig'
+
       for name, cfg in pairs(servers) do
         local server_name = normalize_server_name(name)
         local merged_config = vim.tbl_deep_extend('force', {
           capabilities = vim.tbl_deep_extend('force', {}, capabilities),
         }, cfg or {})
 
-        vim.lsp.config(server_name, merged_config)
-        vim.lsp.enable(server_name)
+        if has_lsp_enable then
+          vim.lsp.config(server_name, merged_config)
+          vim.lsp.enable(server_name)
+        else
+          lspconfig[server_name].setup(merged_config)
+        end
       end
     end,
   },
