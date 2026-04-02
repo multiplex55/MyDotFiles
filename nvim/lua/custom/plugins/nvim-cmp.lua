@@ -139,6 +139,21 @@ return {
       })
 
       local cmdline_mapping = cmp.mapping.preset.cmdline()
+      -- Keep command-line Tab navigation consistent with Noice popupmenu UX.
+      cmdline_mapping['<Tab>'] = cmp.mapping(function(fallback)
+        if cmp.visible() then
+          cmp.select_next_item()
+        else
+          cmp.complete()
+        end
+      end, { 'c' })
+      cmdline_mapping['<S-Tab>'] = cmp.mapping(function(fallback)
+        if cmp.visible() then
+          cmp.select_prev_item()
+        else
+          fallback()
+        end
+      end, { 'c' })
       cmdline_mapping['<CR>'] = cmp.mapping(function(fallback)
         fallback()
       end, { 'c' })
@@ -151,6 +166,9 @@ return {
       end, { 'c' })
 
       cmp.setup.cmdline(':', {
+        completion = {
+          autocomplete = { cmp.TriggerEvent.TextChanged },
+        },
         enabled = function()
           if vim.fn.getcmdtype() ~= ':' then
             return true
