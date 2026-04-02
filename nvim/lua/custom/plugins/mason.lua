@@ -134,13 +134,8 @@ return {
       local util = require 'lspconfig.util' -- safe submodule for root helpers
 
       local servers = {
-        gopls = {
-          filetypes = { 'go', 'gomod', 'gowork', 'gotmpl' },
-          root_dir = function(fname)
-            return util.root_pattern('go.work', 'go.mod', '.git')(fname) or util.path.dirname(fname)
-          end,
-          single_file_support = true,
-        },
+        gopls = {},
+
         nim_langserver = {}, -- aliased to 'nimls' below
         zls = {
           root_dir = function(fname)
@@ -194,20 +189,33 @@ return {
         automatic_enable = false,
       }
 
-      local has_lsp_enable = type(vim.lsp.config) == 'function' and type(vim.lsp.enable) == 'function'
-      local lspconfig = has_lsp_enable and nil or require 'lspconfig'
-
       for name, cfg in pairs(servers) do
         local server_name = normalize_server_name(name)
         local merged_config = vim.tbl_deep_extend('force', {
           capabilities = vim.tbl_deep_extend('force', {}, capabilities),
         }, cfg or {})
 
-        if has_lsp_enable then
-          vim.lsp.config(server_name, merged_config)
-          vim.lsp.enable(server_name)
-        else
-          lspconfig[server_name].setup(merged_config)
+        vim.lsp.config(server_name, merged_config)
+        vim.lsp.enable(server_name)
+      end
+
+      ---------------------------------------------------------------------------
+      -- Custom non-Mason servers
+      ---------------------------------------------------------------------------
+      do
+        local ok, ahk = pcall(require, 'custom.ahk2')
+        if ok then
+          local ahk_config, err = ahk.build_config()
+          if ahk_config then
+            ahk_config.capabilities = vim.tbl_deep_extend('force', {}, capabilities, ahk_config.capabilities or {})
+
+            vim.lsp.config('ahk2', ahk_config)
+            vim.lsp.enable 'ahk2'
+          else
+            vim.schedule(function()
+              vim.notify(err, vim.log.levels.WARN)
+            end)
+          end
         end
       end
     end,
