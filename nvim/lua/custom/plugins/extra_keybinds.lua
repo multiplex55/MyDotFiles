@@ -201,8 +201,15 @@ function M.setup()
     end
   end, { desc = '[Q]ueued macros halt playback' })
 
+  local save_all_before_exec
+  local run_build_cmd
+
   ----- NIM KEYBINDS (using Zig via zigcc) -----
   local function nim_exec_in_tab(backend, extra_flags, run)
+    if not save_all_before_exec() then
+      return
+    end
+
     local dir_path = vim.fn.expand '%:p:h'
     local filename_no_ext = vim.fn.expand '%:t:r'
     local full_path_with_ext = vim.fn.expand '%:p'
@@ -420,27 +427,27 @@ function M.setup()
         if not save_all_before_exec() then
           return
         end
-        vim.cmd 'tabnew | term cargo clean'
+        run_build_cmd({ 'cargo', 'clean' }, 'Cargo: clean')
       end, '[C]ode [C]argo [C]lean')
       map('<leader>ccd', function()
         if not save_all_before_exec() then
           return
         end
-        vim.cmd 'tabnew | term cargo doc --open'
+        run_build_cmd({ 'cargo', 'doc', '--open' }, 'Cargo: doc --open')
       end, '[C]ode [C]argo [D]oc open')
       if not (vim.bo[buf].filetype == 'toml' and vim.api.nvim_buf_get_name(buf):match 'Cargo%.toml$') then
         map('<leader>ccu', function()
           if not save_all_before_exec() then
             return
           end
-          vim.cmd 'tabnew | term cargo update'
+          run_build_cmd({ 'cargo', 'update' }, 'Cargo: update')
         end, '[C]ode [C]argo [U]pdate deps')
       end
       map('<leader>ccf', function()
         if not save_all_before_exec() then
           return
         end
-        vim.cmd 'tabnew | term cargo fmt'
+        run_build_cmd({ 'cargo', 'fmt' }, 'Cargo: fmt')
       end, '[C]ode [C]argo [F]ormat code')
 
       map('<leader>cr', '<Nop>', '[C]ode [R]ust')
@@ -448,68 +455,68 @@ function M.setup()
         if not save_all_before_exec() then
           return
         end
-        vim.cmd 'tabnew | term cargo run'
+        run_build_cmd({ 'cargo', 'run' }, 'Cargo: run')
       end, '[C]ode [R]ust [R]un')
       map('<leader>crR', function()
         if not save_all_before_exec() then
           return
         end
-        vim.cmd 'tabnew | term cargo run --release'
+        run_build_cmd({ 'cargo', 'run', '--release' }, 'Cargo: run --release')
       end, '[C]ode [R]ust Run --[R]elease')
       map('<leader>crb', function()
         if not save_all_before_exec() then
           return
         end
-        vim.cmd 'tabnew | term cargo build'
+        run_build_cmd({ 'cargo', 'build' }, 'Cargo: build')
       end, '[C]ode [R]ust [B]uild')
       map('<leader>crB', function()
         if not save_all_before_exec() then
           return
         end
-        vim.cmd 'tabnew | term cargo build --release'
+        run_build_cmd({ 'cargo', 'build', '--release' }, 'Cargo: build --release')
       end, '[C]ode [R]ust Build --[R]elease')
       map('<leader>crT', function()
         if not save_all_before_exec() then
           return
         end
-        vim.cmd 'tabnew | term cargo test'
+        run_build_cmd({ 'cargo', 'test' }, 'Cargo: test')
       end, '[C]ode [R]ust [T]est suite')
       map('<leader>crt', function()
         if not save_all_before_exec() then
           return
         end
-        vim.cmd 'tabnew | term cargo nextest run --no-capture --test-threads=1'
+        run_build_cmd({ 'cargo', 'nextest', 'run', '--no-capture', '--test-threads=1' }, 'Cargo nextest: run serial')
       end, '[C]ode [R]ust [T]est')
       map('<leader>crn', '<Nop>', '[C]ode [R]ust [N]extest')
       map('<leader>crnl', function()
         if not save_all_before_exec() then
           return
         end
-        vim.cmd 'tabnew | term cargo nextest list'
+        run_build_cmd({ 'cargo', 'nextest', 'list' }, 'Cargo nextest: list')
       end, '[C]ode [R]ust [N]extest [L]ist')
       map('<leader>crnr', function()
         if not save_all_before_exec() then
           return
         end
-        vim.cmd 'tabnew | term cargo nextest run --no-fail-fast'
+        run_build_cmd({ 'cargo', 'nextest', 'run', '--no-fail-fast' }, 'Cargo nextest: run --no-fail-fast')
       end, '[C]ode [R]ust [N]extest [R]un --no-fail-fast')
       map('<leader>crns', function()
         if not save_all_before_exec() then
           return
         end
-        vim.cmd 'tabnew | term cargo nextest run --no-fail-fast  --test-threads 1'
+        run_build_cmd({ 'cargo', 'nextest', 'run', '--no-fail-fast', '--test-threads', '1' }, 'Cargo nextest: run single thread')
       end, '[C]ode [R]ust [N]extest [R]un single thread')
       map('<leader>crc', function()
         if not save_all_before_exec() then
           return
         end
-        vim.cmd 'tabnew | term cargo check'
+        run_build_cmd({ 'cargo', 'check' }, 'Cargo: check')
       end, '[C]ode [R]ust [C]heck')
       map('<leader>crl', function()
         if not save_all_before_exec() then
           return
         end
-        vim.cmd 'tabnew | term cargo clippy'
+        run_build_cmd({ 'cargo', 'clippy' }, 'Cargo: clippy')
       end, '[C]ode [R]ust C[L]ippy lint')
       map('<leader>crd', function()
         vim.cmd.RustDocstring()
@@ -1164,7 +1171,7 @@ function M.setup()
     vim.cmd 'Lspsaga hover_doc'
   end, { desc = 'Show Hover Doc' })
   -- Overseer keybinds under <leader>o
-  local function save_all_before_exec()
+  save_all_before_exec = function()
     local ok, err = pcall(vim.cmd, 'wall')
     if ok then
       return true
@@ -1302,8 +1309,9 @@ function M.setup()
     }
   end, { desc = '[S]earch [R]eplace [V]isual selection' })
 
+  -- All execution mappings must route through this helper to guarantee `wall`.
   -- Helper to run a command in Overseer if present, else a terminal split
-  local function run_build_cmd(cmd, title)
+  run_build_cmd = function(cmd, title)
     if not save_all_before_exec() then
       return
     end

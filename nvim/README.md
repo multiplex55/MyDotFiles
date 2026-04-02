@@ -81,6 +81,15 @@ Troubleshooting quick check:
 
 ## Custom Keymaps
 
+### Execution mapping rule
+
+* All run/build/test/compile mappings must save all buffers first with `:wall` by routing through the shared execution helper (`run_build_cmd`).
+
+### Maintenance QA checklist
+
+* Run `rg -n "tabnew \| term" nvim/lua/custom/plugins/extra_keybinds.lua`.
+* Verify each execution mapping either calls `run_build_cmd(...)` or invokes the shared save helper before executing.
+
 ### Folding defaults
 
 Buffers now start with Treesitter-powered expression folds enabled (`foldmethod=expr`),
