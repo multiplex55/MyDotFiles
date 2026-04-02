@@ -416,26 +416,101 @@ function M.setup()
       end
 
       map('<leader>cc', '<Nop>', '[C]ode [C]argo')
-      map('<leader>ccc', '<cmd>tabnew | term cargo clean<cr>', '[C]ode [C]argo [C]lean')
-      map('<leader>ccd', '<cmd>tabnew | term cargo doc --open<cr>', '[C]ode [C]argo [D]oc open')
+      map('<leader>ccc', function()
+        if not save_all_before_exec() then
+          return
+        end
+        vim.cmd 'tabnew | term cargo clean'
+      end, '[C]ode [C]argo [C]lean')
+      map('<leader>ccd', function()
+        if not save_all_before_exec() then
+          return
+        end
+        vim.cmd 'tabnew | term cargo doc --open'
+      end, '[C]ode [C]argo [D]oc open')
       if not (vim.bo[buf].filetype == 'toml' and vim.api.nvim_buf_get_name(buf):match 'Cargo%.toml$') then
-        map('<leader>ccu', '<cmd>tabnew | term cargo update<cr>', '[C]ode [C]argo [U]pdate deps')
+        map('<leader>ccu', function()
+          if not save_all_before_exec() then
+            return
+          end
+          vim.cmd 'tabnew | term cargo update'
+        end, '[C]ode [C]argo [U]pdate deps')
       end
-      map('<leader>ccf', '<cmd>tabnew | term cargo fmt<cr>', '[C]ode [C]argo [F]ormat code')
+      map('<leader>ccf', function()
+        if not save_all_before_exec() then
+          return
+        end
+        vim.cmd 'tabnew | term cargo fmt'
+      end, '[C]ode [C]argo [F]ormat code')
 
       map('<leader>cr', '<Nop>', '[C]ode [R]ust')
-      map('<leader>crr', '<cmd>tabnew | term cargo run<cr>', '[C]ode [R]ust [R]un')
-      map('<leader>crR', '<cmd>tabnew | term cargo run --release<cr>', '[C]ode [R]ust Run --[R]elease')
-      map('<leader>crb', '<cmd>tabnew | term cargo build<cr>', '[C]ode [R]ust [B]uild')
-      map('<leader>crB', '<cmd>tabnew | term cargo build --release<cr>', '[C]ode [R]ust Build --[R]elease')
-      map('<leader>crT', '<cmd>tabnew | term cargo test<cr>', '[C]ode [R]ust [T]est suite')
-      map('<leader>crt', '<cmd>tabnew | term cargo nextest run --no-capture --test-threads=1<cr>', '[C]ode [R]ust [T]est')
+      map('<leader>crr', function()
+        if not save_all_before_exec() then
+          return
+        end
+        vim.cmd 'tabnew | term cargo run'
+      end, '[C]ode [R]ust [R]un')
+      map('<leader>crR', function()
+        if not save_all_before_exec() then
+          return
+        end
+        vim.cmd 'tabnew | term cargo run --release'
+      end, '[C]ode [R]ust Run --[R]elease')
+      map('<leader>crb', function()
+        if not save_all_before_exec() then
+          return
+        end
+        vim.cmd 'tabnew | term cargo build'
+      end, '[C]ode [R]ust [B]uild')
+      map('<leader>crB', function()
+        if not save_all_before_exec() then
+          return
+        end
+        vim.cmd 'tabnew | term cargo build --release'
+      end, '[C]ode [R]ust Build --[R]elease')
+      map('<leader>crT', function()
+        if not save_all_before_exec() then
+          return
+        end
+        vim.cmd 'tabnew | term cargo test'
+      end, '[C]ode [R]ust [T]est suite')
+      map('<leader>crt', function()
+        if not save_all_before_exec() then
+          return
+        end
+        vim.cmd 'tabnew | term cargo nextest run --no-capture --test-threads=1'
+      end, '[C]ode [R]ust [T]est')
       map('<leader>crn', '<Nop>', '[C]ode [R]ust [N]extest')
-      map('<leader>crnl', '<cmd>tabnew | term cargo nextest list<cr>', '[C]ode [R]ust [N]extest [L]ist')
-      map('<leader>crnr', '<cmd>tabnew | term cargo nextest run --no-fail-fast<cr>', '[C]ode [R]ust [N]extest [R]un --no-fail-fast')
-      map('<leader>crns', '<cmd>tabnew | term cargo nextest run --no-fail-fast  --test-threads 1<cr>', '[C]ode [R]ust [N]extest [R]un single thread')
-      map('<leader>crc', '<cmd>tabnew | term cargo check<cr>', '[C]ode [R]ust [C]heck')
-      map('<leader>crl', '<cmd>tabnew | term cargo clippy<cr>', '[C]ode [R]ust C[L]ippy lint')
+      map('<leader>crnl', function()
+        if not save_all_before_exec() then
+          return
+        end
+        vim.cmd 'tabnew | term cargo nextest list'
+      end, '[C]ode [R]ust [N]extest [L]ist')
+      map('<leader>crnr', function()
+        if not save_all_before_exec() then
+          return
+        end
+        vim.cmd 'tabnew | term cargo nextest run --no-fail-fast'
+      end, '[C]ode [R]ust [N]extest [R]un --no-fail-fast')
+      map('<leader>crns', function()
+        if not save_all_before_exec() then
+          return
+        end
+        vim.cmd 'tabnew | term cargo nextest run --no-fail-fast  --test-threads 1'
+      end, '[C]ode [R]ust [N]extest [R]un single thread')
+      map('<leader>crc', function()
+        if not save_all_before_exec() then
+          return
+        end
+        vim.cmd 'tabnew | term cargo check'
+      end, '[C]ode [R]ust [C]heck')
+      map('<leader>crl', function()
+        if not save_all_before_exec() then
+          return
+        end
+        vim.cmd 'tabnew | term cargo clippy'
+      end, '[C]ode [R]ust C[L]ippy lint')
       map('<leader>crd', function()
         vim.cmd.RustDocstring()
       end, '[C]ode [R]ust [D]ocstring current item')
@@ -1089,7 +1164,22 @@ function M.setup()
     vim.cmd 'Lspsaga hover_doc'
   end, { desc = 'Show Hover Doc' })
   -- Overseer keybinds under <leader>o
-  local function run_overseer_command(command)
+  local function save_all_before_exec()
+    local ok, err = pcall(vim.cmd, 'wall')
+    if ok then
+      return true
+    end
+
+    vim.notify(('Failed to save all buffers before execution: %s'):format(err), vim.log.levels.WARN)
+    return false
+  end
+
+  local function run_overseer_command(command, opts)
+    opts = opts or {}
+    if opts.save_before_exec and not save_all_before_exec() then
+      return
+    end
+
     if not load_plugin 'overseer.nvim' then
       return
     end
@@ -1103,10 +1193,10 @@ function M.setup()
     run_overseer_command 'OverseerTaskAction'
   end, { desc = '[O]verseer task [p]icker' })
   vim.keymap.set('n', '<leader>or', function()
-    run_overseer_command 'OverseerRun'
+    run_overseer_command('OverseerRun', { save_before_exec = true })
   end, { desc = '[O]verseer [r]un template' })
   vim.keymap.set('n', '<leader>oR', function()
-    run_overseer_command 'OverseerQuickAction restart'
+    run_overseer_command('OverseerQuickAction restart', { save_before_exec = true })
   end, { desc = '[O]verseer [R]estart last task' })
   vim.keymap.set('n', '<leader>ot', function()
     run_overseer_command 'OverseerToggle'
@@ -1134,7 +1224,7 @@ function M.setup()
     overseer.open { enter = true, direction = 'bottom' }
   end, { desc = '[O]verseer [q]uickfix focus list' })
   vim.keymap.set('n', '<leader>ob', function()
-    run_overseer_command 'OverseerBuild'
+    run_overseer_command('OverseerBuild', { save_before_exec = true })
   end, { desc = '[O]verseer [b]uild tasks' })
   --Telescope file browser
   vim.keymap.set('n', '<space>sb', ':Telescope file_browser path=%":p:h select_buffer=true<CR>', { desc = '[S]earch file [B]rowser' })
@@ -1214,6 +1304,10 @@ function M.setup()
 
   -- Helper to run a command in Overseer if present, else a terminal split
   local function run_build_cmd(cmd, title)
+    if not save_all_before_exec() then
+      return
+    end
+
     local exe = cmd[1]
     local args = vim.list_slice(cmd, 2)
     local cwd = vim.loop.cwd()
