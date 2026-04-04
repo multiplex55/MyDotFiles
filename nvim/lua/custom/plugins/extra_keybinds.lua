@@ -1399,6 +1399,9 @@ function M.setup()
     end,
   })
 
+  -- =========================
+  -- [Code Typst] keymaps
+  -- =========================
   vim.api.nvim_create_autocmd('FileType', {
     pattern = 'typst',
     callback = function(ev)
