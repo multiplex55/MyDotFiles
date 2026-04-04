@@ -1399,6 +1399,67 @@ function M.setup()
     end,
   })
 
+  vim.api.nvim_create_autocmd('FileType', {
+    pattern = 'typst',
+    callback = function(ev)
+      local buf = ev.buf
+      register_buffer_groups(buf, {
+        { '<leader>cT', group = '[C]ode [T]ypst', mode = 'n' },
+      })
+
+      local function map(lhs, rhs, desc)
+        vim.keymap.set('n', lhs, rhs, { buffer = buf, desc = desc })
+      end
+
+      local function run_typst_cmd(cmd, missing_msg)
+        if vim.fn.exists(':' .. cmd) == 2 then
+          vim.cmd(cmd)
+          return true
+        end
+        if missing_msg then
+          vim.notify(missing_msg, vim.log.levels.WARN)
+        end
+        return false
+      end
+
+      map('<leader>cT', '<Nop>', '[C]ode [T]ypst')
+
+      map('<leader>cTp', function()
+        if run_typst_cmd('TypstPreviewToggle') then
+          return
+        end
+        run_typst_cmd('TypstPreview', 'Typst preview command is unavailable. Install/configure your Typst preview plugin.')
+      end, '[C]ode [T]ypst [P]review')
+
+      map('<leader>cTs', function()
+        run_typst_cmd('TypstPreviewStop', 'Typst preview stop command is unavailable.')
+      end, '[C]ode [T]ypst [S]top preview')
+
+      map('<leader>cTr', function()
+        if run_typst_cmd 'TypstPreviewSync' then
+          return
+        end
+        run_typst_cmd('TypstPreview', 'Typst preview refresh command is unavailable.')
+      end, '[C]ode [T]ypst [R]efresh preview')
+
+      map('<leader>cTf', function()
+        local ok, conform = pcall(require, 'conform')
+        if ok then
+          conform.format { lsp_format = 'fallback' }
+          return
+        end
+        vim.lsp.buf.format { async = true }
+      end, '[C]ode [T]ypst [F]ormat')
+
+      map('<leader>cTw', function()
+        if run_typst_cmd 'TypstPreviewWatchToggle' then
+          return
+        end
+        vim.notify('Typst preview watch toggle is not supported by the active preview plugin.', vim.log.levels.WARN)
+      end, '[C]ode [T]ypst [W]atch toggle')
+    end,
+  })
+
   -- =========================
   -- [Code Go] keymaps
   -- =========================

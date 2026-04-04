@@ -104,9 +104,29 @@ folds, use `zf` to define them per buffer or switch the method back temporarily 
 
 ### Typst tooling
 
-* Start preview with `:TypstPreview` (or `<leader>tp` once a Typst buffer is open).
-* Required external binaries: `typst` CLI and `curl` (the plugin uses `curl` to fetch/update `tinymist` + `websocat` through `:TypstPreviewUpdate`).
-* Troubleshooting missing executables: run `:checkhealth`, then `:echo executable('typst')` / `:echo executable('curl')`; if either returns `0`, install it and restart Neovim.
+Typst is integrated for syntax highlighting (Treesitter), LSP (`tinymist`), formatting (`typstyle`), and preview control keymaps under the code leader namespace.
+
+| Shortcut | Action |
+| --- | --- |
+| `<leader>cTp` | Toggle/start Typst preview (`:TypstPreviewToggle` fallback to `:TypstPreview`). |
+| `<leader>cTs` | Stop Typst preview (`:TypstPreviewStop`). |
+| `<leader>cTr` | Force preview refresh (`:TypstPreviewSync` fallback to `:TypstPreview`). |
+| `<leader>cTf` | Format current Typst buffer via Conform (`typstyle`) with LSP fallback if Conform is unavailable. |
+| `<leader>cTw` | Toggle preview watch mode when supported (`:TypstPreviewWatchToggle`). |
+
+Required tools:
+
+* `typst` (CLI/compiler for document builds and most preview workflows).
+* `tinymist` (Typst language server; installed via Mason/LSP setup).
+* `typstyle` (formatter; wired through Conform, installed via Mason tool installer in this config).
+* `curl` (required by preview plugin update/install flows such as `:TypstPreviewUpdate`).
+
+Verification checklist:
+
+* Parser: `:TSInstallInfo typst` (or `:TSModuleInfo highlight` in a Typst buffer).
+* LSP: `:LspInfo` in a Typst buffer and confirm `tinymist` is attached.
+* Formatter: `:ConformInfo` in a Typst buffer and confirm `typstyle` is available.
+* Preview commands: `:echo exists(':TypstPreview')` and `:echo exists(':TypstPreviewStop')` should return `2`.
 
 ### Rust tools
 

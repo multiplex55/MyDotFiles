@@ -137,6 +137,7 @@ return {
         gopls = {},
 
         nim_langserver = {}, -- aliased to 'nimls' below
+        tinymist = {},
         zls = {
           root_dir = function(fname)
             return util.root_pattern('build.zig', 'zig.zon', '.git')(fname) or util.path.dirname(fname)
@@ -161,7 +162,7 @@ return {
       -- Rule: Mason installs; Neovim LSP config enables; no parallel startup path.
       require('mason').setup()
 
-      local ensure_tools = { 'stylua' }
+      local ensure_tools = { 'stylua', 'typstyle' }
       require('mason-tool-installer').setup { ensure_installed = ensure_tools }
 
       local server_aliases = {

@@ -76,6 +76,14 @@ return {
           end,
         },
         {
+          '<leader>cT',
+          group = '[C]ode [T]ypst',
+          mode = { 'n' },
+          cond = function()
+            return vim.bo.filetype == 'typst'
+          end,
+        },
+        {
           '<leader>d',
           group = '[d]ocument and dashboard',
         },
