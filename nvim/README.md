@@ -102,6 +102,12 @@ after every save so you retain the folded overview. If you relied on creating ma
 folds, use `zf` to define them per buffer or switch the method back temporarily with
 `:setlocal foldmethod=manual`.
 
+### Typst tooling
+
+* Start preview with `:TypstPreview` (or `<leader>tp` once a Typst buffer is open).
+* Required external binaries: `typst` CLI and `curl` (the plugin uses `curl` to fetch/update `tinymist` + `websocat` through `:TypstPreviewUpdate`).
+* Troubleshooting missing executables: run `:checkhealth`, then `:echo executable('typst')` / `:echo executable('curl')`; if either returns `0`, install it and restart Neovim.
+
 ### Rust tools
 
 | Shortcut | Action |
