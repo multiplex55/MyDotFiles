@@ -2,9 +2,19 @@ return {
   { -- Highlight, edit, and navigate code
     'nvim-treesitter/nvim-treesitter',
     build = ':TSUpdate',
-    -- Compatibility policy: Markdown rendering integrations require matching
-    -- Neovim + Treesitter query APIs (notably parser/query predicate helpers).
-    -- Guard markdown-dependent modules when parser/query APIs are unavailable.
+    -- Markdown stack compatibility + upgrade notes:
+    -- - API shape expected by this repo:
+    --   * `vim.treesitter.start/get_parser`
+    --   * `vim.treesitter.query.get/parse/add_predicate/add_directive`
+    --   * parser.parse() -> tree root() -> node.range() must all be callable.
+    -- - Branch/versioning strategy:
+    --   * This config is maintained for the stable/default branch released by
+    --     `nvim-treesitter/nvim-treesitter` plus `:TSUpdate`.
+    --   * If pinning to a commit or switching branch, treat that as an API change
+    --     and re-validate markdown runtime probes + :MarkdownHealth.
+    -- - Known-good baseline for debugging:
+    --   * Neovim v0.11.x + nvim-treesitter default/stable branch (HEAD updated
+    --     via `:TSUpdate`) with markdown + markdown_inline parsers installed.
     opts = {
       ensure_installed = {
         'bash',
@@ -57,6 +67,10 @@ return {
       vim.g.markdown_treesitter_ready = markdown_parser_ready
 
       if not markdown_parser_ready then
+        -- Intentional fallback: disable markdown treesitter highlight/indent when
+        -- markdown parser availability cannot be proven at setup time.
+        -- This keeps non-markdown treesitter features enabled and avoids markdown
+        -- highlighter startup paths that can later crash in callbacks.
         opts.highlight = opts.highlight or {}
         local highlight_disable = opts.highlight.disable or {}
         if type(highlight_disable) == 'string' then

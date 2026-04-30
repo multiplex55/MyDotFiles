@@ -117,6 +117,12 @@ fallback_to_basic_markdown = function(bufnr, reason)
 end
 
 local function safe_start_markdown_ui(bufnr, opts)
+  -- Fallback behavior in this file is intentional, not accidental:
+  -- - Enabled path: Treesitter markdown highlighter + RenderMarkdown UI.
+  -- - Fallback path: stop treesitter for this buffer, disable RenderMarkdown,
+  --   force `syntax=markdown`, and quarantine until :MarkdownRecover.
+  -- This quarantines known runtime failure modes (query/directive/range() nil
+  -- crashes) while preserving editor stability for normal editing.
   opts = opts or {}
   local explicit_recover = opts.explicit_recover == true
   if not is_markdown_buf(bufnr) then
@@ -200,7 +206,11 @@ function M.setup()
     end,
   })
 
-  -- Healthy output should show query_get/query_parse callable=true and markdown parsers available=true.
+  -- Upgrade checklist:
+  -- 1) If nvim-treesitter branch/API changes, update markdown_runtime probe.
+  -- 2) Re-run :MarkdownHealth (expect query_get/query_parse callable=true and
+  --    markdown parsers available=true).
+  -- 3) Confirm fallback warning is not triggered in normal markdown buffers.
   pcall(vim.api.nvim_del_user_command, 'MarkdownHealth')
   vim.api.nvim_create_user_command('MarkdownHealth', function()
     markdown_health.print_report()

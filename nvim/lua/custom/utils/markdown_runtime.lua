@@ -9,6 +9,24 @@ local DEFAULT_VAULT_PATHS = {
 local LARGE_MARKDOWN_LINE_THRESHOLD = 4000
 local LARGE_MARKDOWN_BYTE_THRESHOLD = 512 * 1024
 
+-- Treesitter compatibility contract for markdown integrations:
+-- - Expected API shape:
+--   * `vim.treesitter.start/get_parser`
+--   * `vim.treesitter.query.get/parse/add_predicate/add_directive`
+--   * parser.parse() -> tree.root() -> node.range() callable for markdown trees.
+-- - Why strict probing exists:
+--   * A branch/API mismatch can pass initial setup but fail later in
+--     decoration-provider callbacks (`range()` nil-style crashes).
+--   * Preflight checks let markdown autocmds intentionally fall back to Vim
+--     syntax + disabled render-markdown instead of crashing repeatedly.
+-- - Upgrade checklist:
+--   1) If changing nvim-treesitter branch/API or pin, update this probe.
+--   2) Re-run :MarkdownHealth and confirm query_get/query_parse/parser checks.
+--   3) Open a normal markdown buffer and confirm fallback warning is NOT shown.
+-- - Known-good baseline:
+--   * Neovim v0.11.x + nvim-treesitter default/stable branch (updated with
+--     :TSUpdate) with markdown + markdown_inline parsers present.
+
 local function normalize_path(path)
   if type(path) ~= 'string' or path == '' then
     return nil
