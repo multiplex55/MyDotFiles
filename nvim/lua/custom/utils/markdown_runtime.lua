@@ -146,22 +146,40 @@ function M.markdown_stack_compatible(bufnr)
     return fail 'missing_treesitter_get_parser'
   end
 
-  if type(vim.treesitter.query) ~= 'table' then
-    return fail 'missing_treesitter_query_module'
+  local ok_query, query = pcall(function()
+    return vim.treesitter.query
+  end)
+  if not ok_query then
+    return { ok = false, reason = 'query_namespace_missing', details = 'failed_to_read_treesitter_query_namespace' }
   end
 
-  local query = vim.treesitter.query
-  if type(query.get) ~= 'function' then
-    return fail 'missing_query_get'
+  if type(query) ~= 'table' then
+    return fail 'query_namespace_missing'
   end
-  if type(query.parse) ~= 'function' then
-    return fail 'missing_query_parse'
+
+  local get_fn = query.get
+  if type(get_fn) ~= 'function' then
+    get_fn = query.get_query
   end
-  if type(query.add_predicate) ~= 'function' then
-    return fail 'missing_query_add_predicate'
+
+  if type(get_fn) ~= 'function' then
+    return fail 'query_get_missing'
   end
-  if type(query.add_directive) ~= 'function' then
-    return fail 'missing_query_add_directive'
+
+  local parse_fn = query.parse
+  if type(parse_fn) ~= 'function' then
+    parse_fn = query.parse_query
+  end
+
+  if type(parse_fn) ~= 'function' then
+    return fail 'query_parse_missing'
+  end
+
+  local ok_methods = pcall(function()
+    return get_fn, parse_fn
+  end)
+  if not ok_methods then
+    return fail 'query_api_incompatible'
   end
 
   for _, language in ipairs { 'markdown', 'markdown_inline' } do
