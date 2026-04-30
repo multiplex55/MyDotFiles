@@ -152,6 +152,8 @@ function M.markdown_stack_compatible(bufnr)
 
   local query = vim.treesitter.query
   local query_capabilities = {
+    ts_get_query = type(vim.treesitter.get_query) == 'function',
+    ts_parse_query = type(vim.treesitter.parse_query) == 'function',
     get = type(query.get) == 'function',
     get_query = type(query.get_query) == 'function',
     parse = type(query.parse) == 'function',
@@ -160,8 +162,8 @@ function M.markdown_stack_compatible(bufnr)
     add_directive = type(query.add_directive) == 'function',
   }
 
-  local has_query_fetch = query_capabilities.get or query_capabilities.get_query
-  local has_query_parse = query_capabilities.parse or query_capabilities.parse_query
+  local has_query_fetch = query_capabilities.get or query_capabilities.get_query or query_capabilities.ts_get_query
+  local has_query_parse = query_capabilities.parse or query_capabilities.parse_query or query_capabilities.ts_parse_query
   local has_query_extensions = query_capabilities.add_predicate and query_capabilities.add_directive
 
   if not has_query_fetch and not has_query_parse then
