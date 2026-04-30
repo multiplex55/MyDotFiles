@@ -83,6 +83,7 @@ local function normalize_reason_token(reason)
     missing_treesitter_runtime = true,
     missing_treesitter_start = true,
     missing_treesitter_get_parser = true,
+    missing_markdown_top_level_parser = true,
     treesitter_failure_signature = true,
     render_markdown_treesitter_directive_failure = true,
   }
@@ -111,6 +112,24 @@ local function normalize_reason_token(reason)
   end
 
   return token
+end
+
+local function debug_compatibility_reason(bufnr, stage, reason, details)
+  local message = string.format(
+    '[markdown-runtime] compatibility check failed (%s): %s%s',
+    stage or 'unknown_stage',
+    tostring(reason or 'unknown'),
+    details and details ~= '' and (' :: ' .. tostring(details)) or ''
+  )
+  vim.b[bufnr].markdown_compatibility_debug = {
+    stage = stage,
+    reason = reason,
+    details = details,
+    timestamp = os.date '!%Y-%m-%dT%H:%M:%SZ',
+  }
+  vim.schedule(function()
+    vim.notify(message, vim.log.levels.DEBUG, { title = 'Markdown compatibility debug' })
+  end)
 end
 
 local function notify_once(bufnr, reason)
@@ -184,7 +203,8 @@ local function safe_start_markdown_ui(bufnr, opts)
 
   local compatibility = markdown_runtime.markdown_stack_compatible(bufnr)
   if not compatibility.ok then
-    fallback_to_basic_markdown(bufnr, 'compatibility preflight: ' .. compatibility.reason)
+    debug_compatibility_reason(bufnr, 'preflight', compatibility.reason, compatibility.details)
+    fallback_to_basic_markdown(bufnr, 'compatibility_preflight_' .. tostring(compatibility.reason or 'unknown'))
     return false
   end
 
@@ -192,6 +212,7 @@ local function safe_start_markdown_ui(bufnr, opts)
   -- can happen later in the highlighter loop, so we also intercept runtime errors.
   local ok_ts, ts_err = pcall(vim.treesitter.start, bufnr)
   if not ok_ts and is_treesitter_failure(ts_err) then
+    debug_compatibility_reason(bufnr, 'treesitter_startup', 'treesitter_failure_signature', ts_err)
     fallback_to_basic_markdown(bufnr, 'treesitter failure signature')
     return false
   end
@@ -203,6 +224,7 @@ local function safe_start_markdown_ui(bufnr, opts)
   end)
 
   if not ok_render and is_treesitter_failure(render_err) then
+    debug_compatibility_reason(bufnr, 'render_markdown_enable', 'render_markdown_treesitter_directive_failure', render_err)
     fallback_to_basic_markdown(bufnr, 'render-markdown treesitter directive failure')
     return false
   end
