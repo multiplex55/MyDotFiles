@@ -1,6 +1,9 @@
 return {
   { -- Highlight, edit, and navigate code
     'nvim-treesitter/nvim-treesitter',
+    -- Keep `master` while this config intentionally uses `nvim-treesitter.configs`.
+    -- The `main` branch expects the newer `require('nvim-treesitter').setup()` API shape.
+    branch = 'master',
     build = ':TSUpdate',
     -- Compatibility policy: Markdown rendering integrations require matching
     -- Neovim + Treesitter query APIs (notably parser/query predicate helpers).
@@ -76,6 +79,8 @@ return {
         opts.indent.disable = indent_disable
       end
 
+      -- Compatibility pairing is intentional: `master` branch + `configs.setup` API.
+      -- Change branch and setup API together to avoid markdown/query preflight breakage.
       require('nvim-treesitter.configs').setup(opts)
     end,
     -- There are additional nvim-treesitter modules that you can use to interact
