@@ -89,7 +89,7 @@ vim.opt.tabstop = 4 -- Show a tab as 4 spaces
 vim.opt.softtabstop = 4 -- Insert 4 spaces when pressing Tab
 
 vim.opt.foldmethod = 'expr'
-vim.opt.foldexpr = 'nvim_treesitter#foldexpr()'
+vim.opt.foldexpr = 'v:lua.vim.treesitter.foldexpr()'
 vim.opt.foldlevel = 99 -- Don't fold by default
 vim.opt.foldlevelstart = 99 -- Keep folds fully open in new windows
 vim.opt.foldcolumn = '1'
@@ -132,7 +132,6 @@ vim.keymap.set('n', '<C-k>', '<C-w><C-k>', {
 
 -- [[ Basic Autocommands ]]
 --  See `:help lua-guide-autocommands`
-require('custom.autocmds.markdown').setup()
 
 -- [[ Install `lazy.nvim` plugin manager ]]
 --    See `:help lazy.nvim.txt` or https://github.com/folke/lazy.nvim for more info
@@ -205,7 +204,9 @@ require('lazy').setup({ {
       lazy = '💤 ',
     },
   },
-})
+)})
+
+require('custom.autocmds.markdown').setup()
 
 -- Move this inside config block to ensure it's called AFTER plugin is loaded
 -- COLOR SCHEME — manually comment/uncomment to select the one you want
