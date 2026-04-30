@@ -69,17 +69,63 @@ local function install_markdown_runtime_error_interceptor()
   end
 end
 
+local function normalize_reason_token(reason)
+  local token = tostring(reason or ''):lower():gsub('[^%w_]+', '_'):gsub('^_+', ''):gsub('_+$', '')
+  if token == '' then
+    return 'unknown'
+  end
+
+  local known = {
+    query_namespace_missing = true,
+    query_api_incompatible = true,
+    query_get_missing = true,
+    query_parse_missing = true,
+    missing_treesitter_runtime = true,
+    missing_treesitter_start = true,
+    missing_treesitter_get_parser = true,
+    treesitter_failure_signature = true,
+    render_markdown_treesitter_directive_failure = true,
+  }
+
+  if known[token] then
+    return token
+  end
+
+  if token:find('compatibility_preflight_') == 1 then
+    return token:gsub('^compatibility_preflight_', '')
+  end
+
+  if token:find('missing_parser_') == 1
+    or token:find('missing_parser_parse_') == 1
+    or token:find('parser_parse_failed_') == 1
+    or token:find('missing_tree_root_') == 1
+    or token:find('tree_root_failed_') == 1
+    or token:find('missing_node_range_') == 1
+    or token:find('node_range_call_failed_') == 1
+  then
+    return token
+  end
+
+  if token:find('treesitter') then
+    return 'query_api_incompatible'
+  end
+
+  return token
+end
+
 local function notify_once(bufnr, reason)
-  if vim.b[bufnr].markdown_recovery_notified then
+  local reason_token = normalize_reason_token(reason)
+  vim.b[bufnr].markdown_recovery_notify_reasons = vim.b[bufnr].markdown_recovery_notify_reasons or {}
+  if vim.b[bufnr].markdown_recovery_notify_reasons[reason_token] then
     return
   end
 
+  vim.b[bufnr].markdown_recovery_notify_reasons[reason_token] = true
   vim.b[bufnr].markdown_recovery_notified = true
   vim.notify(
-    'Markdown UI fallback enabled for this buffer ('
-      .. reason
-      .. '). Treesitter highlighting and render-markdown were disabled; '
-      .. 'buffer quarantined until :MarkdownRecover.',
+    'Markdown render UI disabled for this buffer because Treesitter/query compatibility checks failed ('
+      .. reason_token
+      .. '). Markdown syntax highlighting and editing remain active; only the render layer is off until :MarkdownRecover.',
     vim.log.levels.WARN,
     { title = 'Markdown crash recovery' }
   )
@@ -92,6 +138,7 @@ local function clear_recovery_state(bufnr)
   vim.b[bufnr].markdown_recover_requested = false
   vim.b[bufnr].markdown_ts_quarantined = false
   vim.b[bufnr].markdown_recovery_notified = false
+  vim.b[bufnr].markdown_recovery_notify_reasons = {}
 end
 
 local function disable_render_markdown(bufnr)
