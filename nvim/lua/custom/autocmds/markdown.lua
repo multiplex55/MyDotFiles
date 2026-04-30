@@ -80,6 +80,8 @@ local function normalize_reason_token(reason)
     query_api_incompatible = true,
     query_get_missing = true,
     query_parse_missing = true,
+    query_get_failed = true,
+    query_parse_failed = true,
     missing_treesitter_runtime = true,
     missing_treesitter_start = true,
     missing_treesitter_get_parser = true,

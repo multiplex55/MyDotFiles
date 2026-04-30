@@ -67,6 +67,27 @@ function M.is_obsidian_buffer(bufnr)
   return false
 end
 
+
+local function get_query_module()
+  if type(vim.treesitter) ~= 'table' then
+    return nil, 'missing_treesitter_runtime'
+  end
+
+  local query = vim.treesitter.query
+  if type(query) ~= 'table' or type(query.get) ~= 'function' or type(query.parse) ~= 'function' then
+    local ok_require, query_module = pcall(require, 'vim.treesitter.query')
+    if ok_require and type(query_module) == 'table' then
+      query = query_module
+    end
+  end
+
+  if type(query) ~= 'table' or type(query.get) ~= 'function' or type(query.parse) ~= 'function' then
+    return nil, 'query_namespace_missing'
+  end
+
+  return query, nil
+end
+
 local function has_markdown_injections(bufnr)
   local ok, parser = pcall(vim.treesitter.get_parser, bufnr, 'markdown')
   if not ok or not parser or type(parser.children) ~= 'function' then
@@ -146,40 +167,29 @@ function M.markdown_stack_compatible(bufnr)
     return fail 'missing_treesitter_get_parser'
   end
 
-  local ok_query, query = pcall(function()
-    return vim.treesitter.query
-  end)
-  if not ok_query then
-    return { ok = false, reason = 'query_namespace_missing', details = 'failed_to_read_treesitter_query_namespace' }
-  end
-
-  if type(query) ~= 'table' then
-    return fail 'query_namespace_missing'
+  local query, query_reason = get_query_module()
+  if not query then
+    return fail(query_reason or 'query_namespace_missing')
   end
 
   local get_fn = query.get
-  if type(get_fn) ~= 'function' then
-    get_fn = query.get_query
-  end
-
   if type(get_fn) ~= 'function' then
     return fail 'query_get_missing'
   end
 
   local parse_fn = query.parse
   if type(parse_fn) ~= 'function' then
-    parse_fn = query.parse_query
-  end
-
-  if type(parse_fn) ~= 'function' then
     return fail 'query_parse_missing'
   end
 
-  local ok_methods = pcall(function()
-    return get_fn, parse_fn
-  end)
-  if not ok_methods then
-    return fail 'query_api_incompatible'
+  local ok_get, get_err = pcall(get_fn, 'markdown', 'highlights')
+  if not ok_get then
+    return { ok = false, reason = 'query_get_failed', details = tostring(get_err) }
+  end
+
+  local ok_parse, parse_err = pcall(parse_fn, 'markdown', '((section) @markup.heading)')
+  if not ok_parse then
+    return { ok = false, reason = 'query_parse_failed', details = tostring(parse_err) }
   end
 
   for _, language in ipairs { 'markdown' } do
