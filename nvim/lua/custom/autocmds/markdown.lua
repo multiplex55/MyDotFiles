@@ -85,6 +85,21 @@ local function notify_once(bufnr, reason)
   )
 end
 
+local function notify_soft_fallback_once(bufnr, reason)
+  if vim.b[bufnr].markdown_soft_fallback_notified then
+    return
+  end
+
+  vim.b[bufnr].markdown_soft_fallback_notified = true
+  vim.notify(
+    'Markdown UI compatibility fallback enabled for this buffer ('
+      .. reason
+      .. '). Render-markdown was disabled, markdown syntax remains active, and editing is immediately available.',
+    vim.log.levels.WARN,
+    { title = 'Markdown compatibility fallback' }
+  )
+end
+
 
 local function clear_recovery_state(bufnr)
   vim.b[bufnr].markdown_recovery_failed = false
@@ -92,6 +107,8 @@ local function clear_recovery_state(bufnr)
   vim.b[bufnr].markdown_recover_requested = false
   vim.b[bufnr].markdown_ts_quarantined = false
   vim.b[bufnr].markdown_recovery_notified = false
+  vim.b[bufnr].markdown_compatibility_limited = false
+  vim.b[bufnr].markdown_soft_fallback_notified = false
 end
 
 local function disable_render_markdown(bufnr)
@@ -112,6 +129,18 @@ fallback_to_basic_markdown = function(bufnr, reason)
   vim.bo[bufnr].syntax = 'markdown'
 
   notify_once(bufnr, reason)
+end
+
+local function fallback_to_compatibility_markdown(bufnr, reason)
+  vim.b[bufnr].markdown_recovery_failed = false
+  vim.b[bufnr].markdown_recovery_reason = reason
+  vim.b[bufnr].markdown_ts_quarantined = false
+  vim.b[bufnr].markdown_compatibility_limited = true
+
+  disable_render_markdown(bufnr)
+  vim.bo[bufnr].syntax = 'markdown'
+
+  notify_soft_fallback_once(bufnr, reason)
 end
 
 local function safe_start_markdown_ui(bufnr, opts)
@@ -137,7 +166,7 @@ local function safe_start_markdown_ui(bufnr, opts)
 
   local compatibility = markdown_runtime.markdown_stack_compatible(bufnr)
   if not compatibility.ok then
-    fallback_to_basic_markdown(bufnr, 'compatibility preflight: ' .. compatibility.reason)
+    fallback_to_compatibility_markdown(bufnr, 'compatibility preflight: ' .. compatibility.reason)
     return false
   end
 
