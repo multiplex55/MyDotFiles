@@ -151,17 +151,25 @@ function M.markdown_stack_compatible(bufnr)
   end
 
   local query = vim.treesitter.query
-  if type(query.get) ~= 'function' then
-    return fail 'missing_query_get'
+  local query_capabilities = {
+    get = type(query.get) == 'function',
+    get_query = type(query.get_query) == 'function',
+    parse = type(query.parse) == 'function',
+    parse_query = type(query.parse_query) == 'function',
+    add_predicate = type(query.add_predicate) == 'function',
+    add_directive = type(query.add_directive) == 'function',
+  }
+
+  local has_query_fetch = query_capabilities.get or query_capabilities.get_query
+  local has_query_parse = query_capabilities.parse or query_capabilities.parse_query
+  local has_query_extensions = query_capabilities.add_predicate and query_capabilities.add_directive
+
+  if not has_query_fetch and not has_query_parse then
+    return fail 'query_api_incompatible'
   end
-  if type(query.parse) ~= 'function' then
-    return fail 'missing_query_parse'
-  end
-  if type(query.add_predicate) ~= 'function' then
-    return fail 'missing_query_add_predicate'
-  end
-  if type(query.add_directive) ~= 'function' then
-    return fail 'missing_query_add_directive'
+
+  if not has_query_extensions then
+    return fail 'query_extensions_incompatible'
   end
 
   for _, language in ipairs { 'markdown', 'markdown_inline' } do
