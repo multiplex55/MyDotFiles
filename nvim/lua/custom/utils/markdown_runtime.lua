@@ -182,9 +182,12 @@ function M.markdown_stack_compatible(bufnr)
     return fail 'query_api_incompatible'
   end
 
-  for _, language in ipairs { 'markdown', 'markdown_inline' } do
+  for _, language in ipairs { 'markdown' } do
     local ok_parser, parser = pcall(vim.treesitter.get_parser, bufnr, language)
     if not ok_parser or parser == nil then
+      if language == 'markdown' then
+        return fail 'missing_markdown_top_level_parser'
+      end
       return fail('missing_parser_' .. language)
     end
 
