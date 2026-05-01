@@ -1,12 +1,19 @@
 return {
   { -- Highlight, edit, and navigate code
     'nvim-treesitter/nvim-treesitter',
+    -- This module intentionally targets the nvim-treesitter `main` rewrite API.
+    -- Do not mix legacy `nvim-treesitter.configs.setup(...)` calls into this file.
+    branch = 'main',
+    lazy = false,
     build = ':TSUpdate',
-    -- Compatibility policy: Markdown rendering integrations require matching
-    -- Neovim + Treesitter query APIs (notably parser/query predicate helpers).
-    -- Guard markdown-dependent modules when parser/query APIs are unavailable.
-    opts = {
-      ensure_installed = {
+    config = function()
+      local ts = require 'nvim-treesitter'
+
+      ts.setup {
+        install_dir = vim.fn.stdpath 'data' .. '/site',
+      }
+
+      ts.install {
         'bash',
         'c',
         'comment',
@@ -31,52 +38,39 @@ return {
         'vimdoc',
         'yaml',
         'zig',
-      },
-      -- Autoinstall languages that are not installed
-      auto_install = true,
-      highlight = {
-        enable = true,
-        -- Some languages depend on vim's regex highlighting system (such as Ruby) for indent rules.
-        --  If you are experiencing weird indenting issues, add the language to
-        --  the list of additional_vim_regex_highlighting and disabled languages for indent.
-        additional_vim_regex_highlighting = { 'ruby' },
-      },
-      indent = {
-        enable = true,
-        disable = { 'ruby' },
-      },
-    },
-    config = function(_, opts)
-      local ok_parsers, parsers = pcall(require, 'nvim-treesitter.parsers')
-      local markdown_parser_ready = false
+      }
 
-      if ok_parsers and type(parsers.has_parser) == 'function' then
-        markdown_parser_ready = parsers.has_parser 'markdown' and parsers.has_parser 'markdown_inline'
-      end
+      local start_filetypes = {
+        'bash',
+        'c',
+        'diff',
+        'go',
+        'gomod',
+        'gosum',
+        'gotmpl',
+        'html',
+        'lua',
+        'markdown',
+        'md',
+        'norg',
+        'query',
+        'ron',
+        'rust',
+        'toml',
+        'typst',
+        'vim',
+        'yaml',
+        'zig',
+      }
 
-      vim.g.markdown_treesitter_ready = markdown_parser_ready
-
-      if not markdown_parser_ready then
-        opts.highlight = opts.highlight or {}
-        local highlight_disable = opts.highlight.disable or {}
-        if type(highlight_disable) == 'string' then
-          highlight_disable = { highlight_disable }
-        end
-        table.insert(highlight_disable, 'markdown')
-        table.insert(highlight_disable, 'markdown_inline')
-        opts.highlight.disable = highlight_disable
-
-        opts.indent = opts.indent or {}
-        local indent_disable = opts.indent.disable or {}
-        if type(indent_disable) == 'string' then
-          indent_disable = { indent_disable }
-        end
-        table.insert(indent_disable, 'markdown')
-        table.insert(indent_disable, 'markdown_inline')
-        opts.indent.disable = indent_disable
-      end
-
-      require('nvim-treesitter.configs').setup(opts)
+      local ts_ft_group = vim.api.nvim_create_augroup('custom_treesitter_start', { clear = true })
+      vim.api.nvim_create_autocmd('FileType', {
+        group = ts_ft_group,
+        pattern = start_filetypes,
+        callback = function(event)
+          pcall(vim.treesitter.start, event.buf)
+        end,
+      })
     end,
     -- There are additional nvim-treesitter modules that you can use to interact
     -- with nvim-treesitter. You should go explore a few and see what interests you:

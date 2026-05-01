@@ -43,6 +43,8 @@ local function workspace_paths()
 end
 
 function M.obsidian_events()
+  -- NOTE: This helper is intentionally still active and in-scope.
+  -- Obsidian plugin event wiring consumes this function directly.
   local events = {}
   for _, path in ipairs(workspace_paths()) do
     events[#events + 1] = 'BufReadPre ' .. path .. '/**/*.md'
@@ -65,6 +67,27 @@ function M.is_obsidian_buffer(bufnr)
   end
 
   return false
+end
+
+
+local function get_query_module()
+  if type(vim.treesitter) ~= 'table' then
+    return nil, 'missing_treesitter_runtime'
+  end
+
+  local query = vim.treesitter.query
+  if type(query) ~= 'table' or type(query.get) ~= 'function' or type(query.parse) ~= 'function' then
+    local ok_require, query_module = pcall(require, 'vim.treesitter.query')
+    if ok_require and type(query_module) == 'table' then
+      query = query_module
+    end
+  end
+
+  if type(query) ~= 'table' or type(query.get) ~= 'function' or type(query.parse) ~= 'function' then
+    return nil, 'query_namespace_missing'
+  end
+
+  return query, nil
 end
 
 local function has_markdown_injections(bufnr)
@@ -120,6 +143,9 @@ function M.can_enable_render_markdown(bufnr)
     or vim.b[bufnr].obsidian_backlinks_active == true
     or vim.b[bufnr].obsidian_footer_active == true
 
+  -- Legacy compatibility guard for render-markdown coexistence.
+  -- Keep this behavior for now; planned cleanup will remove these helpers
+  -- once markdown runtime migration is complete.
   if M.is_obsidian_buffer(bufnr) and (obsidian_ui_active or package.loaded['obsidian'] ~= nil) then
     return false
   end
@@ -146,27 +172,37 @@ function M.markdown_stack_compatible(bufnr)
     return fail 'missing_treesitter_get_parser'
   end
 
-  if type(vim.treesitter.query) ~= 'table' then
-    return fail 'missing_treesitter_query_module'
+  local query, query_reason = get_query_module()
+  if not query then
+    return fail(query_reason or 'query_namespace_missing')
   end
 
-  local query = vim.treesitter.query
-  if type(query.get) ~= 'function' then
-    return fail 'missing_query_get'
-  end
-  if type(query.parse) ~= 'function' then
-    return fail 'missing_query_parse'
-  end
-  if type(query.add_predicate) ~= 'function' then
-    return fail 'missing_query_add_predicate'
-  end
-  if type(query.add_directive) ~= 'function' then
-    return fail 'missing_query_add_directive'
+  local get_fn = query.get
+  if type(get_fn) ~= 'function' then
+    return fail 'query_get_missing'
   end
 
-  for _, language in ipairs { 'markdown', 'markdown_inline' } do
+  local parse_fn = query.parse
+  if type(parse_fn) ~= 'function' then
+    return fail 'query_parse_missing'
+  end
+
+  local ok_get, get_err = pcall(get_fn, 'markdown', 'highlights')
+  if not ok_get then
+    return { ok = false, reason = 'query_get_failed', details = tostring(get_err) }
+  end
+
+  local ok_parse, parse_err = pcall(parse_fn, 'markdown', '((section) @markup.heading)')
+  if not ok_parse then
+    return { ok = false, reason = 'query_parse_failed', details = tostring(parse_err) }
+  end
+
+  for _, language in ipairs { 'markdown' } do
     local ok_parser, parser = pcall(vim.treesitter.get_parser, bufnr, language)
     if not ok_parser or parser == nil then
+      if language == 'markdown' then
+        return fail 'missing_markdown_top_level_parser'
+      end
       return fail('missing_parser_' .. language)
     end
 
