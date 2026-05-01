@@ -74,18 +74,31 @@ local function get_query_module()
   end
 
   local query = vim.treesitter.query
-  if type(query) ~= 'table' or type(query.get) ~= 'function' or type(query.parse) ~= 'function' then
+  if type(query) ~= 'table' then
     local ok_require, query_module = pcall(require, 'vim.treesitter.query')
     if ok_require and type(query_module) == 'table' then
       query = query_module
     end
   end
 
-  if type(query) ~= 'table' or type(query.get) ~= 'function' or type(query.parse) ~= 'function' then
+  if type(query) ~= 'table' then
     return nil, 'query_namespace_missing'
   end
 
-  return query, nil
+  local get_fn = query.get
+  if type(get_fn) ~= 'function' and type(query.get_query) == 'function' then
+    get_fn = query.get_query
+  end
+
+  local parse_fn = query.parse
+  if type(parse_fn) ~= 'function' and type(query.parse_query) == 'function' then
+    parse_fn = query.parse_query
+  end
+  if type(parse_fn) ~= 'function' and type(vim.treesitter.parse_query) == 'function' then
+    parse_fn = vim.treesitter.parse_query
+  end
+
+  return { get = get_fn, parse = parse_fn }, nil
 end
 
 local function has_markdown_injections(bufnr)
@@ -178,18 +191,16 @@ function M.markdown_stack_compatible(bufnr)
   end
 
   local parse_fn = query.parse
-  if type(parse_fn) ~= 'function' then
-    return fail 'query_parse_missing'
-  end
-
   local ok_get, get_err = pcall(get_fn, 'markdown', 'highlights')
   if not ok_get then
     return { ok = false, reason = 'query_get_failed', details = tostring(get_err) }
   end
 
-  local ok_parse, parse_err = pcall(parse_fn, 'markdown', '((section) @markup.heading)')
-  if not ok_parse then
-    return { ok = false, reason = 'query_parse_failed', details = tostring(parse_err) }
+  if type(parse_fn) == 'function' then
+    local ok_parse, parse_err = pcall(parse_fn, 'markdown', '((section) @markup.heading)')
+    if not ok_parse then
+      return { ok = false, reason = 'query_parse_failed', details = tostring(parse_err) }
+    end
   end
 
   for _, language in ipairs { 'markdown' } do
