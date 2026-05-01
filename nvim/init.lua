@@ -206,7 +206,8 @@ require('lazy').setup({ {
   },
 )})
 
-require('custom.autocmds.markdown').setup()
+-- Markdown rendering is now handled by `delphinus/md-render.nvim`
+-- Old crash-recovery layer is intentionally disabled
 
 -- Move this inside config block to ensure it's called AFTER plugin is loaded
 -- COLOR SCHEME — manually comment/uncomment to select the one you want
