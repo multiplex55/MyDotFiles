@@ -43,6 +43,8 @@ local function workspace_paths()
 end
 
 function M.obsidian_events()
+  -- NOTE: This helper is intentionally still active and in-scope.
+  -- Obsidian plugin event wiring consumes this function directly.
   local events = {}
   for _, path in ipairs(workspace_paths()) do
     events[#events + 1] = 'BufReadPre ' .. path .. '/**/*.md'
@@ -141,6 +143,9 @@ function M.can_enable_render_markdown(bufnr)
     or vim.b[bufnr].obsidian_backlinks_active == true
     or vim.b[bufnr].obsidian_footer_active == true
 
+  -- Legacy compatibility guard for render-markdown coexistence.
+  -- Keep this behavior for now; planned cleanup will remove these helpers
+  -- once markdown runtime migration is complete.
   if M.is_obsidian_buffer(bufnr) and (obsidian_ui_active or package.loaded['obsidian'] ~= nil) then
     return false
   end
