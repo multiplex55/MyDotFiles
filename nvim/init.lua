@@ -204,7 +204,7 @@ require('lazy').setup({ {
       lazy = '💤 ',
     },
   },
-)})
+	})
 
 require('custom.autocmds.markdown').setup()
 
