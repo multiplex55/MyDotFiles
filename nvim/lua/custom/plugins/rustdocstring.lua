@@ -9,7 +9,6 @@ return {
     end, {})
 
     vim.api.nvim_create_user_command('RustDocstringAll', function()
-      local ts_utils = require 'nvim-treesitter.ts_utils'
       local parsers = require 'nvim-treesitter.parsers'
       local docgen = require 'rustdocstring'
 
@@ -42,7 +41,6 @@ return {
     end, { desc = 'Generate Rust docstrings for all functions in file' })
 
     vim.api.nvim_create_user_command('RustDocstringAllKinds', function()
-      local ts_utils = require 'nvim-treesitter.ts_utils'
       local parsers = require 'nvim-treesitter.parsers'
       local docgen = require 'rustdocstring'
 

@@ -20,6 +20,7 @@ return {
   ---@module 'obsidian'
   ---@type obsidian.config.ClientOpts
   opts = {
+    legacy_commands = false,
     workspaces = {
       {
         name = 'personal',
@@ -32,4 +33,16 @@ return {
     -- handlers in non-vault markdown files.
     -- see below for full list of options 👇
   },
+  config = function(_, opts)
+    require('obsidian').setup(opts)
+
+    vim.api.nvim_create_autocmd('FileType', {
+      pattern = 'markdown',
+      callback = function()
+        if vim.opt_local.conceallevel:get() < 1 then
+          vim.opt_local.conceallevel = 2
+        end
+      end,
+    })
+  end,
 }

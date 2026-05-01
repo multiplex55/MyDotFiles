@@ -204,7 +204,7 @@ require('lazy').setup({ {
       lazy = '💤 ',
     },
   },
-)})
+})
 
 -- Markdown rendering is now handled by `delphinus/md-render.nvim`
 -- Old crash-recovery layer is intentionally disabled
