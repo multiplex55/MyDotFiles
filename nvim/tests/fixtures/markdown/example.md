@@ -1,0 +1,5 @@
+---
+filetype: markdown
+---
+
+# Markdown fixture

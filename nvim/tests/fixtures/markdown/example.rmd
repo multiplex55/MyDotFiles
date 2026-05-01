@@ -1,0 +1,5 @@
+---
+filetype: rmd
+---
+
+# R Markdown fixture
