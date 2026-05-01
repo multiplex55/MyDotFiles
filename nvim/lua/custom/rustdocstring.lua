@@ -1,6 +1,11 @@
-local ts_utils = require 'nvim-treesitter.ts_utils'
-
 local M = {}
+
+local function get_node_at_cursor()
+  if vim.treesitter and type(vim.treesitter.get_node) == 'function' then
+    return vim.treesitter.get_node()
+  end
+  return nil
+end
 
 local function get_node_text(node, bufnr)
   if not node then
@@ -218,7 +223,7 @@ end
 
 function M.insert_docstring()
   local bufnr = vim.api.nvim_get_current_buf()
-  local node = ts_utils.get_node_at_cursor()
+  local node = get_node_at_cursor()
   local target = find_supported_ancestor(node)
 
   if not target then

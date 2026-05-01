@@ -5,7 +5,6 @@
 
 local M = {}
 
-local ts_utils = require 'nvim-treesitter.ts_utils'
 local parsers = require 'nvim-treesitter.parsers'
 
 -- Utility to describe common return types like Result, Option, Vec, etc.
@@ -38,12 +37,19 @@ local function format_return_type(type_str)
   return string.format('`%s`.', type_str)
 end
 
+local function get_node_at_cursor()
+  if vim.treesitter and type(vim.treesitter.get_node) == 'function' then
+    return vim.treesitter.get_node()
+  end
+  return nil
+end
+
 -- Main entry: determines what node the cursor is on, and dispatches to a specific doc generator.
 function M.insert_docstring()
   local bufnr = vim.api.nvim_get_current_buf()
   local parser = parsers.get_parser(bufnr, 'rust')
   local root = parser:parse()[1]:root()
-  local node = ts_utils.get_node_at_cursor()
+  local node = get_node_at_cursor()
 
   -- Walk up the syntax tree until we find a supported top-level item
   while node and not vim.tbl_contains({
