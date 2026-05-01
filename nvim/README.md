@@ -251,6 +251,25 @@ When Neovim detects a Treesitter failure signature (for example `range` nil or q
 
 Use `:MarkdownRecover` to re-attempt enabling Treesitter + render-markdown in the current markdown buffer without reopening Neovim.
 
+### `query_get_missing` remediation checklist
+
+After making config updates, validate in this exact order:
+
+1. In Neovim run:
+   * `:Lazy sync nvim-treesitter`
+   * `:TSUpdate`
+   * Fully quit and relaunch Neovim (cold restart, not just `:source`).
+2. In the exact Neovim instance that previously showed `query_get_missing`, run:
+   * `:lua vim.print(vim.version(), vim.v.progpath, vim.fn.has('nvim-0.12'), vim.treesitter.query and vim.treesitter.query.get)`
+   * Optionally run the expanded diagnostic table print if additional signal is needed.
+3. Expected outcomes:
+   * `vim.fn.has('nvim-0.12') == 1`
+   * `vim.treesitter.query.get` is a function
+   * No markdown preflight warning for `query_get_missing` when opening markdown files directly.
+4. If failure persists:
+   * Capture `vim.v.progpath` to detect wrong binary path (common with multiple Neovim installs or GUI wrappers).
+   * Re-run diagnostics from a plain terminal-launched `nvim` and compare environment differences.
+
 ### Lockfile and known-good tuple
 
 This repository intentionally omits `lazy-lock.json`, so plugin revisions are not pinned here.
