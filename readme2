@@ -1,0 +1,505 @@
+Below are two standalone README files you can drop into the relevant folders.
+
+
+---
+
+adapters/README.md
+
+# Adapters
+
+The `adapters` folder contains **app-specific implementations** of behavior required by the shared core.
+
+Adapters answer the question:
+
+> "How does this specific app, platform, machine, or runtime environment provide a capability?"
+
+The shared engine/services should not know whether data came from a file, Ethernet, a DLL, a `.so`, hardware, a mock, or a test fixture. The core should only depend on a **port** trait. The adapter implements that trait.
+
+---
+
+## Purpose
+
+Adapters keep platform-specific and runtime-specific code out of the shared algorithm/service logic.
+
+Examples of adapter responsibilities:
+
+- Reading input from a Windows-only file format
+- Fetching data from Linux hardware
+- Calling a function from a dynamically loaded `.dll` or `.so`
+- Talking to a device driver
+- Providing mock or fallback behavior
+- Loading data from a test fixture
+- Calling an external process or API
+- Translating platform-specific data into core/domain types
+
+---
+
+## What belongs here?
+
+Put code here when it answers **how** something is done for a specific app or environment.
+
+Good examples:
+
+```text
+adapters/
+  step3_file_data_provider.rs
+  step3_ethernet_data_provider.rs
+  proprietary_transform_dll.rs
+  proprietary_transform_so.rs
+  fallback_transform.rs
+  mock_step3_provider.rs
+
+These are concrete implementations of shared ports.
+
+
+---
+
+What does not belong here?
+
+Do not put core algorithm logic here.
+
+Avoid putting these in adapters:
+
+Shared business rules
+
+Main algorithm steps
+
+Domain models
+
+State models
+
+Engine orchestration
+
+Generic utility functions
+
+Port trait definitions
+
+
+Adapters should be replaceable without forcing the engine or service to change.
+
+
+---
+
+Example
+
+Suppose a service needs calibration data during Step 3 of an algorithm.
+
+The core defines a port:
+
+pub trait Step3DataProvider {
+    fn load_step3_data(
+        &mut self,
+        context: &AlgorithmContext,
+    ) -> Result<Step3Data, Step3DataError>;
+}
+
+A Windows app might provide that data from a file:
+
+pub struct FileStep3DataProvider {
+    path: PathBuf,
+}
+
+impl Step3DataProvider for FileStep3DataProvider {
+    fn load_step3_data(
+        &mut self,
+        context: &AlgorithmContext,
+    ) -> Result<Step3Data, Step3DataError> {
+        // Read from a file.
+        // Parse into Step3Data.
+        // Return core/domain type.
+    }
+}
+
+A Linux app might provide the same data from Ethernet:
+
+pub struct EthernetStep3DataProvider {
+    endpoint: String,
+}
+
+impl Step3DataProvider for EthernetStep3DataProvider {
+    fn load_step3_data(
+        &mut self,
+        context: &AlgorithmContext,
+    ) -> Result<Step3Data, Step3DataError> {
+        // Retrieve data from Ethernet.
+        // Convert it into Step3Data.
+        // Return core/domain type.
+    }
+}
+
+The service does not care which adapter is used.
+
+It only calls:
+
+let data = self.step3_provider.load_step3_data(context)?;
+
+
+---
+
+Dynamic Library Adapters
+
+Some adapters may load optional proprietary behavior from a .dll or .so.
+
+For example:
+
+adapters/
+  proprietary_transform_dll.rs
+  proprietary_transform_so.rs
+  fallback_transform.rs
+
+The dynamic library adapter should hide all unsafe FFI details from the rest of the application.
+
+The shared service should depend only on a trait such as:
+
+pub trait ProprietaryTransform {
+    fn transform(
+        &mut self,
+        input: TransformInput,
+    ) -> Result<TransformOutput, TransformError>;
+}
+
+Then both the dynamic implementation and fallback implementation can satisfy the same interface.
+
+pub struct FallbackTransform;
+
+impl ProprietaryTransform for FallbackTransform {
+    fn transform(
+        &mut self,
+        input: TransformInput,
+    ) -> Result<TransformOutput, TransformError> {
+        Ok(TransformOutput::from_passthrough(input))
+    }
+}
+
+This allows runtime behavior such as:
+
+DLL/SO found and valid
+  -> use proprietary transform
+
+DLL/SO missing or invalid
+  -> use fallback transform
+
+
+---
+
+Design Rule
+
+Adapters should depend inward.
+
+They may depend on:
+
+ports
+
+domain types
+
+error types
+
+configuration types, if app-specific
+
+external libraries required for the implementation
+
+
+They should not be depended on by shared services or engines directly.
+
+Preferred dependency direction:
+
+app wiring
+  -> adapter implementation
+  -> port trait
+  -> domain types
+
+service/engine
+  -> port trait
+  -> domain types
+
+The app wires the concrete adapter into the service or engine.
+
+The core logic only sees the port.
+
+---
+
+# `ports/README.md`
+
+```md
+# Ports
+
+The `ports` folder contains **trait definitions** used by services, engines, and shared core logic.
+
+Ports answer the question:
+
+> "What capability does the core algorithm need?"
+
+A port should describe the required behavior without caring how that behavior is implemented.
+
+The implementation may come from a file, Ethernet, a DLL, a `.so`, a driver, a mock, or a fallback algorithm. The service should not know or care.
+
+---
+
+## Purpose
+
+Ports define the boundary between shared core logic and app-specific behavior.
+
+They allow the core to say:
+
+> "I need something that can provide Step 3 data."
+
+Instead of saying:
+
+> "I need to read Ethernet."
+> "I need to open this Windows file."
+> "I need to call this Linux driver."
+
+This keeps services and engines reusable across multiple apps and platforms.
+
+---
+
+## What belongs here?
+
+Put trait definitions here when a service or engine needs behavior that can vary by app, platform, runtime, or test environment.
+
+Good examples:
+
+```text
+ports/
+  step3_data_provider.rs
+  proprietary_transform.rs
+  calibration_data_provider.rs
+  runtime_input_provider.rs
+  result_sink.rs
+  clock.rs
+  state_access.rs
+
+These files should usually contain traits and closely related types.
+
+Example:
+
+pub trait CalibrationDataProvider {
+    fn load_calibration_data(
+        &mut self,
+        context: &AlgorithmContext,
+    ) -> Result<CalibrationData, CalibrationDataError>;
+}
+
+
+---
+
+What does not belong here?
+
+Avoid putting concrete implementation details in ports.
+
+Do not put these in ports:
+
+File-reading logic
+
+Ethernet-specific logic
+
+Windows API calls
+
+Linux driver calls
+
+DLL or .so loading
+
+Mock data storage
+
+Algorithm orchestration
+
+Large data models
+
+App startup/wiring logic
+
+
+A port should define the contract, not the mechanism.
+
+
+---
+
+Name ports after the capability, not the mechanism
+
+Prefer this:
+
+pub trait Step3DataProvider {
+    fn load_step3_data(
+        &mut self,
+        context: &AlgorithmContext,
+    ) -> Result<Step3Data, Step3DataError>;
+}
+
+Avoid this unless Ethernet itself is the real domain concept:
+
+pub trait EthernetProvider {
+    fn read_from_ethernet(&mut self) -> Result<Vec<u8>, EthernetError>;
+}
+
+The core algorithm usually does not care about Ethernet specifically.
+
+It cares about the data needed for the next step.
+
+Better names:
+
+Step3DataProvider
+CalibrationDataProvider
+RuntimeInputProvider
+TransformProvider
+AlgorithmPlugin
+ResultSink
+
+Mechanism-specific names should usually live in adapters:
+
+FileStep3DataProvider
+EthernetStep3DataProvider
+DllTransformProvider
+LinuxDriverCalibrationProvider
+MockRuntimeInputProvider
+
+
+---
+
+Example
+
+Suppose a service has a five-step algorithm.
+
+Step 1: Normalize input
+Step 2: Validate state
+Step 3: Retrieve external data
+Step 4: Apply transform
+Step 5: Store result
+
+Step 3 varies by app:
+
+Windows app
+  -> load data from a file
+
+Linux app
+  -> retrieve data through Ethernet
+
+Target app
+  -> retrieve data from hardware
+
+Test app
+  -> use fixture data
+
+The shared service should not branch on platform.
+
+Instead, define a port:
+
+pub trait Step3DataProvider {
+    fn load_step3_data(
+        &mut self,
+        context: &AlgorithmContext,
+    ) -> Result<Step3Data, Step3DataError>;
+}
+
+The service depends on the port:
+
+pub struct PotatoAlgorithmService<P>
+where
+    P: Step3DataProvider,
+{
+    step3_provider: P,
+}
+
+impl<P> PotatoAlgorithmService<P>
+where
+    P: Step3DataProvider,
+{
+    pub fn run_step3(
+        &mut self,
+        context: &AlgorithmContext,
+    ) -> Result<Step3Data, Step3DataError> {
+        self.step3_provider.load_step3_data(context)
+    }
+}
+
+Each app provides its own adapter implementation.
+
+
+---
+
+Optional DLL/SO Behavior
+
+Ports are also useful for optional runtime functionality.
+
+For example, the core may support a proprietary transform if a dynamic library is present.
+
+Define the port:
+
+pub trait ProprietaryTransform {
+    fn transform(
+        &mut self,
+        input: TransformInput,
+    ) -> Result<TransformOutput, TransformError>;
+}
+
+Then provide multiple implementations elsewhere:
+
+adapters/
+  proprietary_transform_dll.rs
+  proprietary_transform_so.rs
+  fallback_transform.rs
+
+The service depends only on the port:
+
+let output = self.transform.transform(input)?;
+
+The app decides at startup which implementation to use.
+
+DLL/SO available
+  -> use dynamic library adapter
+
+DLL/SO unavailable
+  -> use fallback adapter
+
+
+---
+
+State Access Ports
+
+Ports can also be used to restrict access to shared state.
+
+Instead of giving every service full access to a global manager, define narrow state traits:
+
+pub trait AlgorithmStateRead {
+    fn current_mode(&self) -> AlgorithmMode;
+    fn current_input(&self) -> Option<InputData>;
+}
+
+pub trait AlgorithmStateWrite {
+    fn store_step3_data(&mut self, data: Step3Data);
+    fn store_result(&mut self, result: AlgorithmResult);
+}
+
+Then a manager can implement only the access required by a service.
+
+This allows shared state while keeping mutation controlled and explicit.
+
+
+---
+
+Design Rule
+
+A port should be:
+
+small
+
+named by capability
+
+owned by the core/service that needs it
+
+free of platform-specific details
+
+easy to mock
+
+easy to implement differently per app
+
+
+A good port says:
+
+"What do I need?"
+
+An adapter says:
+
+"How do I provide it here?"
+
+The service should depend on the port.
+
+The app should wire in the adapter.
