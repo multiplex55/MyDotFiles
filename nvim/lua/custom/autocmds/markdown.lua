@@ -1,7 +1,5 @@
 local markdown_runtime = require 'custom.utils.markdown_runtime'
 
-local markdown_health = require 'custom.utils.markdown_health'
-
 local M = {}
 
 local markdown_error_interceptor_installed = false
@@ -269,14 +267,6 @@ function M.setup()
         safe_start_markdown_ui(event.buf)
       end)
     end,
-  })
-
-  -- Healthy output should show query_get/query_parse callable=true and markdown parsers available=true.
-  pcall(vim.api.nvim_del_user_command, 'MarkdownHealth')
-  vim.api.nvim_create_user_command('MarkdownHealth', function()
-    markdown_health.print_report()
-  end, {
-    desc = 'Print markdown treesitter compatibility and parser diagnostics',
   })
 
   pcall(vim.api.nvim_del_user_command, 'MarkdownRecover')
