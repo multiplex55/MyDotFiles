@@ -1098,3 +1098,304 @@ Unless I specify otherwise:
 * Prefer simple, maintainable architecture over clever abstraction.
 * Prefer code blocks grouped by file path.
 * Prefer focused changes over broad rewrites.
+
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+Yes. The best setup is a small **prompt toolbox** you can paste depending on the task. I would not use one giant universal prompt every time; I’d keep **modular helper snippets**.
+
+For you, the highest-value snippets would be:
+
+| Helper snippet                              | Use when                                                    |
+| ------------------------------------------- | ----------------------------------------------------------- |
+| **Rust Coding Guidance**                    | Any Rust code generation or modification                    |
+| **Project Context Card**                    | Starting work on a repo with no memory                      |
+| **Implementation Plan Contract**            | You want detailed tasks before code                         |
+| **Code Review Contract**                    | You want the model to inspect existing code                 |
+| **Debugging Contract**                      | Something is broken and you want root-cause analysis        |
+| **Architecture / Maintainability Contract** | You want design guidance, not just code                     |
+| **Testing Contract**                        | You want unit tests, regression tests, property tests, etc. |
+| **No-Run / Build-Only Agent Rules**         | For Codex-like agents that should not launch GUI apps       |
+| **Output Format Contract**                  | Forces file-path grouped code blocks and concise summaries  |
+| **Local Model Constraint Header**           | Tells weaker/offline models what they cannot assume         |
+
+Here are three high-leverage snippets I’d keep alongside the Rust one.
+
+---
+
+## 1. General Project Context Card
+
+Use this at the top of a new model context when working on any repo.
+
+# Project Context Card
+
+You are helping me work on an existing software project. You do not have memory from previous conversations, so treat this section as durable project guidance.
+
+## My Preferences
+
+I prefer:
+
+* Precise, maintainable, idiomatic code
+* Clear module boundaries
+* Small focused functions
+* Detailed function documentation
+* Moderate inline comments explaining intent and edge cases
+* Explicit error handling
+* Unit tests for pure logic and regressions
+* Minimal unrelated refactoring
+* Code grouped by file path
+* Enough surrounding context to know where code belongs
+
+I dislike:
+
+* Giant rewrites without justification
+* Vague pseudo-code when I asked for implementation
+* Unexplained code dumps
+* Hidden behavior changes
+* Unnecessary dependencies
+* Overly clever abstractions
+* Large god functions
+* Claims that tests passed when they were not actually run
+
+## Project Handling Rules
+
+Before changing code:
+
+1. Inspect nearby files and existing patterns.
+2. Preserve existing style unless clearly broken.
+3. Identify the smallest safe change.
+4. Explain meaningful tradeoffs.
+5. Avoid changing public APIs unless necessary.
+6. Avoid adding dependencies unless justified.
+7. Keep feature work, cleanup, and refactoring separate when possible.
+
+## Response Format
+
+For implementation tasks, respond with:
+
+1. Brief summary
+2. Files changed
+3. Code blocks grouped by file path
+4. Tests to add or update
+5. Commands I should run
+6. Risks or follow-up notes
+
+Use this file-path code block style:
+
+```text
+src/path/to/file.rs
+```
+
+```rust
+// code here
+```
+
+Do not omit file paths.
+
+## Validation
+
+When suggesting validation, prefer:
+
+```text
+cargo fmt
+cargo clippy --all-targets --all-features
+cargo test
+cargo check
+```
+
+Use project-specific commands when they exist.
+
+Do not claim that validation passed unless you actually ran it.
+
+---
+
+## 2. Implementation Plan Contract
+
+Use this when you want **tasks, not code yet**. This matches how you often ask for “implementation steps with detail.”
+
+# Implementation Plan Contract
+
+I want an implementation plan, not code yet.
+
+Create a detailed, step-by-step plan for the requested change. The plan should be specific enough that another developer or coding agent could implement it safely.
+
+## Required Structure
+
+For each task, include:
+
+* **Goal** - What this task accomplishes
+* **Why** - Why the change is needed
+* **Files likely involved** - Specific files or modules if known
+* **What to change** - Concrete implementation details
+* **Data structures / fields** - Any structs, enums, config fields, or function signatures likely needed
+* **Behavioral rules** - Exact runtime behavior expected
+* **Edge cases** - Important cases to handle
+* **Tests** - Unit/regression/table-driven tests to add
+* **Validation** - Commands or manual checks to run
+* **Risk level** - Low, medium, or high, with explanation
+
+## Planning Rules
+
+Prefer granular tasks over large vague tasks.
+
+Avoid saying “refactor the system” without explaining exactly what should move, where it should move, and why.
+
+Separate these categories when possible:
+
+1. Model/data changes
+2. Config changes
+3. Runtime behavior changes
+4. UI changes
+5. Error handling changes
+6. Tests
+7. Documentation
+8. Cleanup
+
+## Style
+
+Be direct, precise, and implementation-oriented.
+
+Do not provide code unless I explicitly ask for code after the plan.
+
+If there are multiple valid approaches, compare them and recommend one.
+
+---
+
+## 3. Debugging / Root-Cause Contract
+
+Use this when something is broken and you want the model to avoid random guessing.
+
+# Debugging and Root-Cause Analysis Contract
+
+I want root-cause analysis, not random guesses.
+
+Analyze the bug systematically.
+
+## Required Response Structure
+
+1. **Observed behavior**
+
+   * Restate the bug in precise terms.
+
+2. **Expected behavior**
+
+   * State what should happen instead.
+
+3. **Most likely root causes**
+
+   * List likely causes in priority order.
+   * Explain why each cause fits the symptoms.
+
+4. **Evidence to inspect**
+
+   * Name the files, functions, logs, state transitions, config fields, or tests that should be checked.
+
+5. **Root cause**
+
+   * Identify the most likely actual cause.
+   * Be explicit if the evidence is incomplete.
+
+6. **Fix plan**
+
+   * Give concrete implementation steps.
+   * Prefer minimal, targeted fixes.
+
+7. **Regression tests**
+
+   * Explain what tests should be added so this bug does not come back.
+
+8. **Validation**
+
+   * Provide commands and manual checks.
+
+## Debugging Rules
+
+Do not jump straight to code.
+
+Do not rewrite unrelated systems unless the architecture is directly causing the bug.
+
+Preserve working behavior.
+
+When comparing a “good” and “bad” version of code:
+
+* Identify behavioral differences first.
+* Look for changed timing, input handling, state ownership, event loops, threading, debounce/throttle behavior, and config defaults.
+* Explain why the good version works.
+* Explain why the bad version fails.
+* Propose the smallest fix that restores the working behavior while preserving desired new features.
+
+## Output Preference
+
+When code changes are eventually needed, group them by file path and include enough context to place the code.
+
+---
+
+## Other snippets worth making
+
+I’d keep these as smaller one-screen snippets rather than huge prompts:
+
+### **Code Review Contract**
+
+Use when asking “how is this looking now?”
+
+```text
+Review this code as if you are doing a serious PR review. Focus on correctness, maintainability, edge cases, state management, error handling, tests, and whether the design matches the intended workflow. Separate findings into: Critical, Important, Nice-to-have, and Not worth changing. Do not invent issues. If something is fine, say so.
+```
+
+### **No-Run / Build-Only Contract**
+
+Useful for GUI apps and agents:
+
+```text
+Do not run this application. Do not launch the GUI. You may inspect files and suggest build/check/test commands. If acting as a coding agent, only use non-interactive validation such as cargo check, cargo test, cargo clippy, and cargo fmt. Never use cargo run unless I explicitly authorize it.
+```
+
+### **Output Format Enforcement**
+
+For weaker models that keep ignoring formatting:
+
+```text
+Your answer must use file-path grouped code blocks. Every code block must be preceded by a plain text file path. Do not provide unlabeled code blocks. Do not omit tests. Do not claim tests passed unless you ran them.
+```
+
+### **Architecture Review Contract**
+
+```text
+Review this architecture for maintainability. Focus on module boundaries, ownership, state flow, dependency direction, testability, coupling, config handling, and whether domain logic is separated from UI/IO. Recommend concrete changes by file/module. Avoid abstract architecture advice unless it maps directly to this codebase.
+```
+
+### **Testing Contract**
+
+```text
+Design a focused testing plan. Prefer small unit tests, table-driven tests, regression tests, and property tests only where they provide real value. Do not recommend broad end-to-end tests unless necessary. For each test, state the function/module under test, input, expected output, and bug/behavior it protects.
+```
+
+## My recommendation
+
+Create a folder like:
+
+```text
+AI_CONTEXT_SNIPPETS/
+  00_project_context_card.md
+  01_rust_coding_guidance.md
+  02_implementation_plan_contract.md
+  03_debugging_contract.md
+  04_code_review_contract.md
+  05_testing_contract.md
+  06_no_run_build_only_contract.md
+  07_output_format_contract.md
+```
+
+Then paste only what applies:
+
+```text
+[Project Context Card]
+[Rust Coding Guidance]
+[Debugging Contract]
+
+Task:
+The bad branch has chunky mouse movement compared to the good branch. Find the root cause and propose a fix plan.
+```
+
+That modular approach will work much better than one massive prompt because weaker models tend to lose instruction priority when the context header is too large.
+
