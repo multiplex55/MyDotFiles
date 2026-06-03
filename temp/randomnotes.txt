@@ -1,0 +1,525 @@
+I think you've found one of the strongest counterarguments to the traditional "you must understand all the code" position.
+
+Let's take the regex example.
+
+Suppose I give you this:
+
+```regex
+^(?=.{8,64}$)(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[^\w\s]).*$
+```
+
+Many experienced engineers cannot explain every character from memory.
+
+Should that prevent it from shipping?
+
+Probably not.
+
+If you have:
+
+* A clear requirement
+* Test cases
+* Edge case coverage
+* Documentation of intent
+
+Then requiring everyone to mentally parse every regex token is arguably not providing much value.
+
+---
+
+# What Are You Actually Approving?
+
+This is the key distinction.
+
+You are rarely approving:
+
+> "I certify that I understand every implementation detail."
+
+You are usually approving:
+
+> "I have sufficient evidence that this behaves correctly within the system."
+
+Those are very different statements.
+
+For example, when reviewing a PR, I might not understand:
+
+* A regex
+* A SIMD optimization
+* A complex SQL query
+* A cryptographic primitive
+* A lock-free data structure
+
+Yet I may still be comfortable approving it because:
+
+* The requirements are clear
+* The implementation is isolated
+* The tests are extensive
+* The risk is acceptable
+
+---
+
+# Evidence-Based Confidence
+
+Think about engineering confidence as coming from multiple sources:
+
+| Source                 | Confidence |
+| ---------------------- | ---------- |
+| Personal understanding | High       |
+| Unit tests             | Medium     |
+| Property tests         | High       |
+| Fuzz tests             | High       |
+| Formal verification    | Very High  |
+| Production telemetry   | High       |
+| Industry adoption      | High       |
+| Code review            | Medium     |
+
+Traditionally, we over-indexed on personal understanding because it was often the only tool available.
+
+Today we have much better tools.
+
+---
+
+# The Limits of Understanding
+
+There's another uncomfortable truth:
+
+Many engineers think they understand code that they actually don't.
+
+I've seen developers confidently approve:
+
+* concurrency code
+* memory management code
+* distributed systems code
+
+because it "looked right."
+
+Then six months later a race condition appears.
+
+In contrast, a heavily-tested implementation they don't fully understand may actually be safer.
+
+---
+
+# Where Understanding Still Matters
+
+There are areas where requirements and tests alone are often insufficient.
+
+### Security
+
+Example:
+
+```rust
+authenticate_user(...)
+```
+
+All tests pass.
+
+But the implementation has a timing attack.
+
+Requirements didn't mention timing attacks.
+
+Tests didn't catch it.
+
+Domain knowledge matters.
+
+---
+
+### Performance
+
+Example:
+
+```rust
+for item in items {
+    expensive_database_query(item);
+}
+```
+
+All tests pass.
+
+Requirements pass.
+
+Production melts.
+
+Someone needed to understand the implications.
+
+---
+
+### Architecture
+
+Example:
+
+An AI generates a system that works perfectly today.
+
+But every feature addition now requires modifying 50 files.
+
+Requirements pass.
+
+Tests pass.
+
+Yet maintainability is poor.
+
+---
+
+# The Regex Case Specifically
+
+For a complicated regex, I would generally say:
+
+**No, an engineer does not need to understand every symbol.**
+
+They should understand:
+
+* What problem it solves
+* What inputs it accepts
+* What inputs it rejects
+* How performance behaves
+* Whether tests demonstrate correctness
+
+For example:
+
+```text
+Requirement:
+Password must be:
+- 8-64 characters
+- At least one uppercase
+- At least one lowercase
+- At least one number
+- At least one special character
+```
+
+Plus:
+
+```text
+✓ Test valid examples
+✓ Test invalid examples
+✓ Test boundaries
+✓ Fuzz test random inputs
+```
+
+That's usually enough.
+
+---
+
+# A More Useful Standard
+
+Instead of:
+
+> "Can you explain every line?"
+
+I think a better question is:
+
+> "If this breaks in production, do we have enough understanding and evidence to diagnose and fix it?"
+
+That's a much more practical bar.
+
+For some code, that means deep implementation knowledge.
+
+For other code, especially highly-tested and well-isolated code, it may only require understanding:
+
+* intent
+* behavior
+* constraints
+* failure modes
+
+and not every implementation detail.
+
+In fact, if an organization insists that every engineer must understand every implementation detail before approving a change, that organization will eventually struggle to scale. Modern software systems are simply too large. The more scalable approach is to require sufficient understanding **relative to the risk of the component**, while relying on tests, tooling, observability, and automation to provide the rest of the confidence.
+
+
+--------------------------------------------------
+========================================================
+
+The middle ground is:
+
+> **Let AI propose implementation, but humans own boundaries, contracts, risks, and acceptance evidence.**
+
+Not:
+
+> “AI may only write tiny functions.”
+
+And not:
+
+> “AI can build the whole thing and we’ll hope tests catch it.”
+
+The right model is **contract-driven AI development**.
+
+# 1. Separate Decisions From Implementation
+
+AI can help with decisions, but should not silently own them.
+
+## Humans should own
+
+* Architecture boundaries
+* Data ownership
+* Security assumptions
+* Error-handling policy
+* Public APIs
+* Persistence model
+* Concurrency model
+* Operational behavior
+* “What happens when this fails?”
+
+## AI can help with
+
+* Implementation drafts
+* Refactoring
+* Test generation
+* Edge-case discovery
+* Documentation
+* Comparing design options
+* Finding bugs
+* Producing examples
+
+So the policy is not:
+
+> “AI cannot make decisions.”
+
+It is:
+
+> “AI can recommend decisions, but humans must explicitly accept the important ones.”
+
+---
+
+# 2. Use an “AI Contract” Before Generating Code
+
+Before asking AI to implement something, define the contract.
+
+For Rust, this works very well:
+
+```rust
+/// Parses a user-supplied filter expression into a validated FilterAst.
+///
+/// Requirements:
+/// - Accepts only documented operators: `and`, `or`, `not`, `=`, `!=`, `<`, `>`.
+/// - Rejects unknown fields.
+/// - Rejects malformed expressions with structured errors.
+/// - Does not panic on invalid input.
+/// - Does not allocate unbounded memory for hostile input.
+/// - Does not perform I/O.
+/// - Must be deterministic.
+///
+/// Failure behavior:
+/// - Returns `Err(FilterParseError)` for invalid input.
+/// - Never silently ignores invalid tokens.
+pub fn parse_filter(input: &str) -> Result<FilterAst, FilterParseError> {
+    todo!()
+}
+```
+
+Now AI is not free-floating. It is filling in a constrained box.
+
+That box is what the engineer reviews first.
+
+---
+
+# 3. The Engineer Does Not Need to Know Every Detail
+
+The engineer needs to know enough to answer:
+
+> “What is this supposed to do, what can go wrong, and how do we know it behaves correctly?”
+
+That is different from:
+
+> “Can you explain every internal line?”
+
+For a complicated regex, parser, generated mapping table, SQL query, or serialization implementation, the bar should be:
+
+* I understand the **intent**
+* I understand the **inputs and outputs**
+* I understand the **failure modes**
+* I understand the **risk level**
+* I have evidence from **tests / tooling / review**
+* I know how to replace or isolate it if needed
+
+That is sufficient in many cases.
+
+---
+
+# 4. Use a Risk-Based Understanding Standard
+
+Not all code needs the same review depth.
+
+| Code Type               |     AI Use | Human Understanding Required |
+| ----------------------- | ---------: | ---------------------------- |
+| Formatting/helper code  |       High | Low-Medium                   |
+| DTOs/serde structs      |       High | Low-Medium                   |
+| UI boilerplate          |       High | Medium                       |
+| Business rules          |     Medium | High                         |
+| Data migrations         |     Medium | High                         |
+| Auth/security           | Low-Medium | Very High                    |
+| Unsafe Rust             |        Low | Very High                    |
+| Concurrency primitives  |        Low | Very High                    |
+| Financial/payment logic | Low-Medium | Very High                    |
+| Parsing untrusted input |     Medium | High                         |
+
+The distinction is not “AI or not AI.”
+
+The distinction is:
+
+> **How expensive is being wrong?**
+
+---
+
+# 5. Define “Good Enough to Use”
+
+Something is good enough to use when you have enough **evidence** relative to its risk.
+
+For low-risk code:
+
+```text
+Requirements + normal unit tests + review
+```
+
+For medium-risk code:
+
+```text
+Requirements + docs + unit tests + edge cases + integration tests + reviewer explanation
+```
+
+For high-risk code:
+
+```text
+Requirements + design note + threat model + unit tests + property tests + fuzzing + observability + rollback plan
+```
+
+For critical code:
+
+```text
+All of the above + domain expert review + maybe avoid AI-generated implementation entirely
+```
+
+---
+
+# 6. Treat AI Code Like a New Internal Dependency
+
+This is the best analogy.
+
+Serde is an external dependency with:
+
+* reputation
+* maintainers
+* years of usage
+* docs
+* bug history
+* ecosystem pressure
+
+AI-generated code has none of that.
+
+So you compensate with:
+
+* smaller scope
+* better tests
+* clearer docs
+* isolation
+* explicit contracts
+* reviewable design
+
+You do **not** need to understand AI-generated code more because it is AI.
+
+You need more evidence because it has no track record.
+
+---
+
+# 7. Make AI Code Isolated and Replaceable
+
+A good AI-assisted implementation should have a narrow boundary.
+
+Bad:
+
+```text
+AI changes architecture, data model, UI, validation, persistence, and error handling in one PR.
+```
+
+Good:
+
+```text
+AI implements `parse_filter()` behind a stable interface with tests.
+```
+
+The more isolated the code is, the less you need to understand every internal detail.
+
+This is the same reason libraries work.
+
+You trust the interface more than the internals.
+
+---
+
+# 8. Require an Explanation Artifact, Not Line-by-Line Understanding
+
+For AI-assisted PRs, I would require a short section like:
+
+```text
+AI Assistance:
+- Used to draft initial parser implementation.
+- Human-defined API, error model, and requirements.
+- Human-reviewed generated code for panic behavior, invalid input handling, and allocation behavior.
+
+Risk:
+- Parses untrusted input.
+- Main risks are malformed input, excessive allocation, and incorrect operator precedence.
+
+Evidence:
+- Unit tests for valid/invalid expressions.
+- Property tests for no-panic behavior.
+- Fuzz target added for parser input.
+- Integration test added for API behavior.
+```
+
+That is far more useful than asking:
+
+> “Can you explain every line?”
+
+---
+
+# 9. Use AI in Layers
+
+A good workflow:
+
+## Step 1 — Human defines the problem
+
+```text
+We need a parser for X with these operators and these failure modes.
+```
+
+## Step 2 — AI proposes design options
+
+```text
+Give me 3 implementation approaches with tradeoffs.
+```
+
+## Step 3 — Human selects approach
+
+```text
+Use recursive descent. No parser generator. No unsafe. No panics.
+```
+
+## Step 4 — AI writes constrained implementation
+
+```text
+Implement only this module. Do not change public API.
+```
+
+## Step 5 — AI writes tests
+
+```text
+Generate unit tests, edge cases, property tests, and fuzz cases.
+```
+
+## Step 6 — Human reviews contract, risks, and evidence
+
+Not every token. The system behavior.
+
+---
+
+# 10. The Final Standard
+
+I would phrase the policy like this:
+
+> Engineers are not required to understand every implementation detail of AI-assisted code. They are required to understand the code’s purpose, interface, assumptions, risks, failure modes, and evidence of correctness. The required depth of understanding scales with the risk and ownership of the code.
+
+That is the middle ground.
+
+It avoids both extremes:
+
+* **No AI decision-making at all** → too conservative.
+* **Vibe-coded black boxes** → reckless.
+
+The mature standard is:
+
+> **Human-owned contracts. AI-assisted implementation. Evidence-based approval. Risk-scaled review.**
