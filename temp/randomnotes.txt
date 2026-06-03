@@ -1399,3 +1399,561 @@ The bad branch has chunky mouse movement compared to the good branch. Find the r
 
 That modular approach will work much better than one massive prompt because weaker models tend to lose instruction priority when the context header is too large.
 
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+Yes. You have the core set, but I’d add a few **Rust-development-specific helper prompts** that cover the gaps between “write code” and “debug code.”
+
+The big missing categories are:
+
+| Prompt                                           | Why it is useful                                                                 |
+| ------------------------------------------------ | -------------------------------------------------------------------------------- |
+| **Code Explanation Contract**                    | Forces the model to explain existing code clearly instead of hand-waving.        |
+| **Devil’s Advocate / Design Challenge Contract** | Good for preventing over-engineered or fragile designs.                          |
+| **Next Steps / Roadmap Contract**                | Good after a feature is implemented and you want practical follow-up tasks.      |
+| **Refactor Safety Contract**                     | Prevents “rewrite everything” behavior.                                          |
+| **API / Type Design Contract**                   | Useful for Rust because types are architecture.                                  |
+| **State Machine Review Contract**                | Very useful for your input/keybind/mouse/state-heavy apps.                       |
+| **Async / Concurrency Review Contract**          | Useful when tasks, channels, locks, timers, or GUI background work are involved. |
+| **Config Design Contract**                       | Useful because many of your apps are config-driven.                              |
+| **Patch Review Contract**                        | Useful when another model generated a patch and you want a second-pass review.   |
+| **Acceptance Criteria Contract**                 | Useful before implementation to pin down what “done” means.                      |
+
+Here is a strong add-on pack.
+
+# Rust Development Helper Prompt Pack
+
+Use these prompts when working with a model that has no memory. Paste the relevant section before the task.
+
+---
+
+# Code Explanation Contract
+
+I want you to explain this Rust code clearly and accurately.
+
+Assume I am an experienced programmer, but I may not know this specific codebase yet.
+
+## Required Explanation Structure
+
+Explain the code in this order:
+
+1. **High-level purpose**
+
+   * What problem this code solves.
+   * Where it likely fits in the project.
+
+2. **Main data types**
+
+   * Explain important structs, enums, traits, type aliases, and constants.
+   * Explain what each type represents.
+   * Explain any invariants or assumptions.
+
+3. **Control flow**
+
+   * Walk through the important functions in execution order.
+   * Explain how data moves through the system.
+   * Explain important branches and early returns.
+
+4. **Error handling**
+
+   * Explain what can fail.
+   * Explain whether failures are handled locally or returned to the caller.
+   * Explain whether `anyhow`, explicit errors, `Option`, `Result`, `unwrap`, or `expect` are used appropriately.
+
+5. **State changes**
+
+   * Explain what mutable state exists.
+   * Explain who owns it.
+   * Explain when and why it changes.
+
+6. **Edge cases**
+
+   * Identify boundary cases, invalid inputs, empty inputs, missing config, timing issues, or state conflicts.
+
+7. **Tests**
+
+   * Explain what behavior is currently tested.
+   * Identify missing tests.
+
+8. **Potential improvements**
+
+   * List concrete improvements, but separate them from the explanation.
+
+## Explanation Rules
+
+Do not simply restate the code line by line.
+
+Focus on intent, behavior, ownership, state, errors, and design.
+
+Be explicit when something is unclear or inferred.
+
+Do not invent behavior that is not supported by the code.
+
+---
+
+# Devil's Advocate / Design Challenge Contract
+
+I want you to challenge this Rust design or implementation.
+
+Act as a skeptical senior engineer reviewing the approach before it becomes permanent.
+
+## Required Structure
+
+1. **Restate the design**
+
+   * Briefly describe what the design appears to be doing.
+
+2. **What is good about it**
+
+   * Identify the strengths first.
+
+3. **Main concerns**
+
+   * List the strongest objections.
+   * Focus on maintainability, correctness, testability, performance, state flow, API design, and error handling.
+
+4. **Failure modes**
+
+   * Explain how this design could break in production or become painful later.
+
+5. **Over-engineering check**
+
+   * Identify anything that seems more complex than the problem requires.
+
+6. **Under-engineering check**
+
+   * Identify anything that is too ad hoc, too implicit, or likely to become technical debt.
+
+7. **Rust-specific concerns**
+
+   * Discuss ownership, lifetimes, cloning, trait boundaries, error types, async behavior, lock usage, and type safety.
+
+8. **Alternative designs**
+
+   * Provide 2-3 alternatives.
+   * Explain tradeoffs.
+   * Recommend one.
+
+9. **Decision**
+
+   * State whether you would approve, revise, or reject the design.
+   * Give concrete changes required for approval.
+
+## Rules
+
+Do not be contrarian for no reason.
+
+Do not recommend a complex architecture unless the complexity is justified.
+
+Prefer concrete changes over abstract design advice.
+
+Be honest about tradeoffs.
+
+---
+
+# Next Steps / Feature Roadmap Contract
+
+I want practical next steps for this Rust project or feature.
+
+Do not give vague suggestions. Give implementation-ready tasks.
+
+## Required Structure
+
+Group suggestions into these categories:
+
+1. **Correctness**
+
+   * Bugs, edge cases, validation, state conflicts, regression risks.
+
+2. **Maintainability**
+
+   * Module boundaries, duplicated logic, confusing functions, naming, type design.
+
+3. **Testing**
+
+   * Unit tests, table-driven tests, regression tests, property tests if useful.
+
+4. **User experience**
+
+   * UI, tooltips, config clarity, error messages, logs, diagnostics.
+
+5. **Performance**
+
+   * Hot paths, unnecessary allocations, excessive IO, expensive recomputation.
+
+6. **Observability**
+
+   * Logging, tracing, debug output, metrics, diagnostics.
+
+7. **Documentation**
+
+   * README, config comments, examples, function docs, architecture notes.
+
+8. **Future features**
+
+   * Useful features that build naturally on the current design.
+
+## For Each Suggested Task
+
+Include:
+
+* **Task name**
+* **Why it matters**
+* **Files likely involved**
+* **What to change**
+* **Tests to add**
+* **Risk level**
+* **Estimated complexity**
+* **Whether it should be done now or later**
+
+## Rules
+
+Prioritize high-value, low-risk improvements first.
+
+Separate must-fix issues from nice-to-have ideas.
+
+Do not suggest broad rewrites unless there is a clear payoff.
+
+---
+
+# Refactor Safety Contract
+
+I want a safe refactor plan, not a rewrite.
+
+The goal is to improve structure while preserving behavior.
+
+## Required Structure
+
+1. **Current pain points**
+
+   * Identify concrete maintainability problems.
+
+2. **Behavior that must not change**
+
+   * List existing behavior that should remain identical.
+
+3. **Refactor boundaries**
+
+   * Identify what should move and what should stay.
+
+4. **Step-by-step refactor plan**
+
+   * Each step should be independently reviewable.
+   * Each step should keep the project compiling.
+
+5. **Tests before refactor**
+
+   * Identify tests that should exist before changing structure.
+
+6. **Tests after refactor**
+
+   * Identify tests that prove behavior was preserved.
+
+7. **Risk areas**
+
+   * Identify where regressions are most likely.
+
+8. **Rollback strategy**
+
+   * Explain how to keep changes easy to revert.
+
+## Rules
+
+Do not combine refactoring with feature changes unless explicitly requested.
+
+Do not rename or move things just for aesthetics.
+
+Prefer extracting pure logic first.
+
+Prefer adding tests before changing behavior-heavy code.
+
+---
+
+# API / Type Design Contract
+
+I want help designing Rust types and APIs.
+
+Focus on making invalid states hard to represent and caller intent clear.
+
+## Required Structure
+
+1. **Domain concepts**
+
+   * Identify the real concepts that need types.
+
+2. **Proposed types**
+
+   * Suggest structs, enums, newtypes, traits, and config types.
+
+3. **Ownership model**
+
+   * Explain who owns each value.
+   * Explain where borrowing is appropriate.
+   * Explain where cloning is acceptable.
+
+4. **Function boundaries**
+
+   * Propose public functions and important private helpers.
+   * Explain inputs, outputs, and errors.
+
+5. **Error model**
+
+   * Identify which errors should be explicit typed errors.
+   * Identify where `anyhow::Result` is appropriate.
+
+6. **State model**
+
+   * Explain mutable state and transitions.
+   * Prefer enums for modes/states instead of loose booleans.
+
+7. **Extensibility**
+
+   * Explain how this design can grow without major rewrites.
+
+8. **Tests**
+
+   * Identify unit tests for each type or function.
+
+## Rules
+
+Prefer clear types over clever generic abstractions.
+
+Do not introduce traits unless there are multiple implementations, a testing need, or a real boundary.
+
+Use enums for meaningful modes, commands, actions, and states.
+
+Use newtypes when raw strings, numbers, or IDs would be ambiguous.
+
+---
+
+# State Machine Review Contract
+
+I want a state-machine-oriented review of this Rust code.
+
+This is especially important for input handling, GUI behavior, keyboard/mouse control, timers, modes, and command routing.
+
+## Required Structure
+
+1. **States**
+
+   * Identify all meaningful states.
+   * Identify whether they are explicit or implicit.
+
+2. **Events**
+
+   * Identify inputs/events that cause state changes.
+
+3. **Transitions**
+
+   * Explain valid transitions.
+   * Identify invalid or missing transitions.
+
+4. **Priority rules**
+
+   * Explain which events/actions should win when multiple things happen.
+
+5. **Stuck states**
+
+   * Identify ways the app can get trapped in a bad state.
+
+6. **Race/timing risks**
+
+   * Identify debounce, repeat, timeout, async, or ordering problems.
+
+7. **Recommended model**
+
+   * Suggest enums, structs, or routing changes to make state explicit.
+
+8. **Tests**
+
+   * Recommend tests for transitions, priority, cancellation, and recovery.
+
+## Rules
+
+Prefer explicit state over scattered booleans.
+
+Prefer central routing for priority-sensitive input.
+
+Emergency/exit/kill-switch behavior should be highest priority if applicable.
+
+---
+
+# Async / Concurrency Review Contract
+
+I want a Rust async/concurrency review.
+
+Focus on correctness, cancellation, ownership, task lifetime, channels, locks, and GUI responsiveness.
+
+## Required Structure
+
+1. **Async boundaries**
+
+   * Identify what is async and why.
+
+2. **Task ownership**
+
+   * Explain who spawns tasks and who owns their handles.
+
+3. **Cancellation**
+
+   * Explain how tasks stop.
+   * Identify tasks that can leak or outlive their owner.
+
+4. **Shared state**
+
+   * Identify `Arc`, `Mutex`, `RwLock`, channels, atomics, or shared state.
+   * Check whether locks are held across `.await`.
+
+5. **Error propagation**
+
+   * Explain where task errors go.
+   * Identify swallowed errors.
+
+6. **Backpressure**
+
+   * Identify unbounded queues, event floods, or hot loops.
+
+7. **GUI responsiveness**
+
+   * Identify blocking work that could freeze the UI.
+
+8. **Recommendations**
+
+   * Provide concrete changes and tests.
+
+## Rules
+
+Do not make pure logic async unnecessarily.
+
+Avoid holding locks across `.await`.
+
+Prefer clear task lifetime and cancellation behavior.
+
+---
+
+# Config Design Contract
+
+I want a config design review or implementation plan.
+
+Focus on clarity, defaults, validation, backwards compatibility, and runtime behavior.
+
+## Required Structure
+
+1. **Config fields**
+
+   * Propose or review field names and sections.
+
+2. **Defaults**
+
+   * Define sensible defaults.
+   * Explain why each default is reasonable.
+
+3. **Units**
+
+   * Explicitly document units such as milliseconds, pixels, seconds, percentages, counts, or paths.
+
+4. **Validation**
+
+   * Identify invalid values and fallback behavior.
+
+5. **Runtime representation**
+
+   * Explain parsed runtime types such as `Duration`, enums, paths, or newtypes.
+
+6. **Backward compatibility**
+
+   * Explain how existing config files continue to work.
+
+7. **Example config**
+
+   * Provide example TOML comments.
+
+8. **Tests**
+
+   * Include tests for defaults, parsing, invalid values, and backwards compatibility.
+
+## Rules
+
+Do not hardcode behavior that should be configurable.
+
+Do not add config fields without defaults and documentation.
+
+Use enums instead of strings when possible after parsing.
+
+---
+
+# Patch Review Contract
+
+I want you to review a patch or code generated by another model.
+
+Do not assume the patch is correct.
+
+## Required Structure
+
+1. **Summary of what the patch changes**
+2. **Correctness issues**
+3. **Compile risks**
+4. **Behavior changes**
+5. **Missing error handling**
+6. **Missing tests**
+7. **Maintainability concerns**
+8. **Unnecessary changes**
+9. **Recommended edits**
+10. **Approval decision**
+
+    * Approve
+    * Approve with minor changes
+    * Needs revision
+    * Reject
+
+## Rules
+
+Be specific.
+
+Point to files, functions, and logic.
+
+Do not invent issues.
+
+Separate confirmed problems from possible risks.
+
+---
+
+# Acceptance Criteria Contract
+
+Before implementing, define what “done” means.
+
+## Required Structure
+
+1. **Feature summary**
+2. **Functional requirements**
+3. **Non-functional requirements**
+4. **Out-of-scope items**
+5. **Edge cases**
+6. **Error behavior**
+7. **Config behavior**
+8. **UI behavior**, if applicable
+9. **Tests required**
+10. **Manual validation steps**
+11. **Definition of done**
+
+## Rules
+
+Acceptance criteria should be testable.
+
+Avoid vague requirements like “make it better.”
+
+Use concrete statements like:
+
+* “When X happens, Y should occur.”
+* “If config value Z is missing, default to A.”
+* “If parsing fails, return error B with context C.”
+* “The UI should show disabled state when D is unavailable.”
+
+The ones I’d personally use the most for your workflow are:
+
+1. **Devil’s Advocate / Design Challenge**
+2. **State Machine Review**
+3. **Config Design**
+4. **Patch Review**
+5. **Acceptance Criteria**
+
+Those map really well to the kinds of Rust apps you build: config-heavy, GUI-ish, input/state-heavy, and often maintained through iterative feature branches.
