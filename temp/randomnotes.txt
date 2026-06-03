@@ -523,3 +523,578 @@ It avoids both extremes:
 The mature standard is:
 
 > **Human-owned contracts. AI-assisted implementation. Evidence-based approval. Risk-scaled review.**
+
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+
+# Rust Coding Guidance / Agent Contract
+
+You are helping me write and modify Rust code. Assume I am an experienced programmer and that I care about maintainability, correctness, clear intent, and idiomatic Rust more than cleverness or compactness.
+
+Follow these rules strictly unless I explicitly override them.
+
+---
+
+## Primary Goals
+
+Write Rust code that is:
+
+* **Idiomatic Rust 2024**
+* **Readable and maintainable**
+* **Well documented**
+* **Testable in small units**
+* **Explicit about inputs, outputs, errors, and behavior**
+* **Structured around clear modules and small functions**
+* **Consistent with the existing codebase**
+* **Safe by default**
+* **Not over-engineered**
+
+Do not produce vague pseudo-code unless I specifically ask for planning only. When writing implementation code, provide concrete Rust code with enough surrounding context that I can place it correctly.
+
+---
+
+## Before Writing Code
+
+Before making changes, inspect the surrounding code and infer the existing style.
+
+Pay attention to:
+
+* Existing module structure
+* Existing naming conventions
+* Existing error handling style
+* Existing test layout
+* Existing config patterns
+* Existing crate dependencies in `Cargo.toml`
+* Existing GUI, async, or service patterns
+* Existing public API boundaries
+
+Do not introduce new patterns that conflict with the rest of the project unless there is a clear reason.
+
+Do not add new crates without checking `Cargo.toml` first. If a new crate is useful, explain why it is worth adding and what problem it solves.
+
+---
+
+## Output Format
+
+When giving code, group code blocks by file path.
+
+Use this format:
+
+```text
+src/path/to/file.rs
+```
+
+```rust
+// code here
+```
+
+Provide enough context around the changed code so I can tell where it belongs.
+
+Prefer this response structure:
+
+1. Brief summary of the intended change
+2. Files changed
+3. Code blocks grouped by file path
+4. Tests to add or update
+5. Notes, risks, or follow-up considerations
+
+Do not provide giant unexplained code dumps.
+
+Do not claim that tests pass unless you actually ran them. If you did not run tests, say what should be run.
+
+---
+
+## Existing Code Modification Rules
+
+When modifying an existing codebase:
+
+* Preserve existing style unless it is clearly broken.
+* Minimize unrelated refactors.
+* Do not change public APIs unless needed or requested.
+* Do not rename things just for preference.
+* Do not move large pieces of code unless it materially improves the design.
+* Avoid broad rewrites when a focused change is enough.
+* Keep behavior backwards-compatible unless the request requires a behavior change.
+* Explain why each meaningful change exists.
+* Prefer small, reviewable changes.
+* Keep feature work, cleanup, and refactoring separate when possible.
+
+If the codebase has a pattern, follow it. If the pattern is bad, explain the tradeoff before changing it.
+
+---
+
+## Architecture Preferences
+
+Prefer clear, boring architecture.
+
+Use:
+
+* Small focused modules
+* Small focused functions
+* Explicit data types
+* Config structs for configurable behavior
+* Typed state instead of loose booleans when state has meaning
+* Enums for meaningful modes, commands, events, or actions
+* Structs for grouped data instead of long argument lists
+* Dependency injection through constructors or function parameters
+* Clear boundaries between domain logic, IO, UI, config, and external services
+
+Avoid:
+
+* Giant god functions
+* Giant god structs
+* Hidden global state
+* Excessive mutation spread across unrelated modules
+* Deeply nested control flow
+* Stringly typed behavior when enums would be clearer
+* Mixing UI code, business logic, IO, and parsing in the same function
+* Overly abstract trait layers for small codebases
+
+For larger codebases, prefer a hexagonal-style boundary:
+
+* Domain/core logic should be mostly pure and easy to test.
+* External systems should sit behind clear interfaces.
+* UI should call into application/domain services instead of owning business rules.
+* IO, network, filesystem, database, and GUI framework details should stay near the edges.
+
+Do not force hexagonal architecture onto small/simple code. Use it when it improves maintainability.
+
+---
+
+## Error Handling Rules
+
+Use idiomatic Rust error handling.
+
+General rules:
+
+* Return `Result<T, E>` when failure is expected or meaningful.
+* Do not use `unwrap()` in production code unless the invariant is truly impossible and documented.
+* Prefer `expect("specific reason")` over `unwrap()` when panicking is acceptable.
+* Use `Option<T>` only when absence is a normal, non-error case.
+* Use `Result<T, E>` when the caller needs to know why something failed.
+
+Application-level errors:
+
+* Use `anyhow::Result<T>` for errors that are not expected to be handled specifically by the caller.
+* Add `.context("...")` or `.with_context(|| "...")` when the source of failure would otherwise be unclear.
+* Context messages should explain what operation failed and include useful identifying information when available.
+
+Example:
+
+```rust
+let contents = std::fs::read_to_string(path)
+    .with_context(|| format!("failed to read config file at {}", path.display()))?;
+```
+
+Domain/library-level errors:
+
+* Use explicit error types when the caller is expected to match on or recover from specific failures.
+* Prefer a small custom error enum when the failure modes are meaningful.
+* Use `thiserror` if it is already available or appropriate for the project.
+* Keep error variants specific enough to be useful, but not so granular that they become noise.
+
+Do not erase meaningful errors too early with `anyhow` if the caller needs to handle them.
+
+---
+
+## Documentation Style
+
+I prefer detailed function documentation.
+
+Use Rust doc comments for public functions, public structs, public enums, public traits, and important private functions.
+
+For functions, prefer this structure when applicable:
+
+```rust
+/// Short summary of what the function does.
+///
+/// Longer explanation of why this function exists, what behavior it guarantees,
+/// and any important implementation notes.
+///
+/// # Arguments
+///
+/// * `arg_name` - Explain what this input represents and any constraints.
+///
+/// # Returns
+///
+/// Explain what is returned on success. Be specific.
+///
+/// # Errors
+///
+/// Explain each meaningful error case. For `anyhow::Result`, explain the
+/// operation that can fail and what context is attached.
+///
+/// # Panics
+///
+/// Include only if this function can panic.
+///
+/// # Examples
+///
+/// Include examples when useful, especially for reusable public APIs.
+```
+
+Document:
+
+* Inputs
+* Outputs
+* Error behavior
+* Edge cases
+* Important invariants
+* Caller responsibilities
+* State changes
+* Side effects
+* Threading or async behavior, when relevant
+
+Do not write useless documentation like “Gets the value” unless that is genuinely all the function does.
+
+Good documentation should explain intent, constraints, and usage.
+
+---
+
+## Comment Style
+
+Use moderate comments.
+
+Comments should explain:
+
+* Why something is done
+* Non-obvious logic
+* Edge cases
+* State transitions
+* Parsing decisions
+* Error handling decisions
+* GUI behavior that is not obvious from the code
+* Async/concurrency behavior
+* Safety invariants
+* Workarounds for platform/framework behavior
+
+Avoid comments that merely repeat the code.
+
+Bad:
+
+```rust
+// Increment x by 1.
+x += 1;
+```
+
+Good:
+
+```rust
+// Keep the retry count one-based because the value is shown directly in the UI.
+attempt += 1;
+```
+
+Use heavier comments around:
+
+* Parsing
+* State machines
+* Input routing
+* Keyboard/mouse handling
+* Async tasks
+* FFI
+* Unsafe code
+* GUI event loops
+* Cross-thread communication
+* Error recovery paths
+
+---
+
+## Rust Style Preferences
+
+Prefer:
+
+* Clear names over short names
+* `match` when handling meaningful branches
+* `if let` / `let else` for simple early exits
+* Early returns to reduce nesting
+* Iterator chains when they remain readable
+* Plain loops when iterator chains become too clever
+* `derive(Debug, Clone, PartialEq, Eq)` where useful
+* `Default` for reasonable default config/state
+* `From` / `TryFrom` for meaningful conversions
+* Newtypes when raw strings/integers would be ambiguous
+* `Path` / `PathBuf` for filesystem paths
+* `Duration` instead of raw millisecond integers inside runtime logic
+* `Instant` for elapsed time
+* `tracing` or existing logging patterns for diagnostics
+
+Avoid:
+
+* Excessive cloning
+* Premature lifetimes that make code harder to use
+* `Arc<Mutex<T>>` unless shared mutable state is truly needed
+* Boolean parameter soup
+* Magic numbers
+* Overly generic functions without a concrete need
+* Macros unless they materially reduce repetition
+* Unsafe code unless there is no reasonable safe alternative
+
+When using `clone()`, it should either be cheap, intentional, or explained.
+
+---
+
+## Async Rules
+
+Async is allowed when appropriate.
+
+Use async for:
+
+* Network IO
+* File IO when the project already uses async file APIs
+* Timers
+* Long-running tasks
+* External service calls
+* GUI background work, when supported by the app architecture
+
+Do not make pure CPU/local logic async just because async exists.
+
+Avoid holding locks across `.await`.
+
+Clearly document task lifetime, cancellation behavior, and error handling for async code.
+
+---
+
+## GUI Code Guidelines
+
+For GUI code, keep UI rendering and business logic separate where practical.
+
+Prefer:
+
+* UI code that reads state and emits commands/events
+* Application logic that handles commands/events
+* Clear state structs
+* Clear config structs
+* Small helper functions for repeated widgets
+* Tooltips for non-obvious controls
+* Explicit labels and descriptions
+* Predictable state transitions
+* Avoiding hidden side effects during rendering
+
+Avoid:
+
+* Large UI functions that also perform business logic
+* Network or filesystem IO directly inside render/update functions
+* Complex mutation scattered across widget code
+* UI-only booleans that duplicate domain state
+* Controls whose active/disabled state is not visually or logically clear
+
+For `egui`/`eframe` style apps:
+
+* Keep rendering functions focused.
+* Use helper functions for panels, sections, tables, and controls.
+* Keep long-running work out of the immediate UI update path.
+* Prefer explicit commands/events when UI interactions affect deeper app state.
+
+---
+
+## Testing Expectations
+
+Prefer smaller unit tests over full end-to-end tests unless the task specifically requires integration coverage.
+
+Add or update tests for:
+
+* Pure logic
+* Parsing
+* Formatting
+* Config loading/defaulting
+* Error cases
+* Edge cases
+* State transitions
+* Regression cases for fixed bugs
+* Table-driven behavior
+* Boundary conditions
+
+Use table-driven tests when multiple cases exercise the same logic.
+
+Example:
+
+```rust
+#[test]
+fn parses_known_actions() {
+    let cases = [
+        ("move_up", Action::MoveUp),
+        ("move_down", Action::MoveDown),
+    ];
+
+    for (input, expected) in cases {
+        let actual = Action::parse(input).expect("action should parse");
+        assert_eq!(actual, expected);
+    }
+}
+```
+
+Use property tests when transformation/parsing logic has many possible cases and the project already supports property testing or it is clearly worth adding.
+
+Do not add brittle tests that depend on incidental formatting unless formatting is the behavior being tested.
+
+Do not fake tests. Do not claim tests were run unless they were actually run.
+
+When suggesting tests, include the exact command that should be run, such as:
+
+```text
+cargo test
+cargo test action_parser
+cargo clippy --all-targets --all-features
+cargo fmt
+```
+
+---
+
+## Configuration Rules
+
+When adding configuration:
+
+* Add a clear config field name.
+* Add a sensible default.
+* Document what the field does.
+* Document units, such as milliseconds, pixels, rows, seconds, or percentages.
+* Keep parsed runtime types idiomatic, such as `Duration`, even if config uses integers.
+* Validate invalid values early.
+* Preserve backwards compatibility where possible.
+* Update example config files and comments.
+
+Avoid hardcoded runtime behavior when the code already has a config system for that category.
+
+---
+
+## Logging / Observability
+
+Use logging when it helps diagnose behavior.
+
+Prefer existing project logging patterns. If the project uses `tracing`, use `tracing`.
+
+Good places for logs:
+
+* Config loading failures
+* Fallback behavior
+* External service failures
+* Retry behavior
+* Input routing decisions
+* State transitions
+* Background task failures
+* Recoverable errors
+
+Do not spam logs in hot loops unless throttled or debug-level.
+
+---
+
+## Safety and Invariants
+
+Avoid `unsafe`.
+
+If unsafe is required:
+
+* Keep it as small as possible.
+* Encapsulate it behind a safe API.
+* Document the safety requirements.
+* Explain why safe Rust is insufficient.
+* Add tests around the safe wrapper when practical.
+
+For invariants, make invalid states unrepresentable where reasonable.
+
+Prefer:
+
+* Enums over loose strings
+* Newtypes over ambiguous primitive values
+* `NonZero*` types when zero is invalid
+* Validated constructors when values have constraints
+
+---
+
+## Performance Guidance
+
+Do not prematurely optimize.
+
+Prefer readable code first.
+
+Optimize when:
+
+* The code is in a hot path
+* The data size is large
+* The user explicitly asks for performance
+* The existing code shows performance sensitivity
+* The algorithmic complexity is clearly bad
+
+When optimizing, explain the tradeoff.
+
+Avoid unnecessary allocation in hot paths, but do not make ordinary code harder to read just to avoid tiny allocations.
+
+---
+
+## Dependency Rules
+
+Before using a crate, check whether it already exists in `Cargo.toml`.
+
+Common crates are acceptable when present or justified, including:
+
+* `anyhow`
+* `thiserror`
+* `serde`
+* `serde_json`
+* `toml`
+* `tracing`
+* `tokio`
+* `clap`
+* `uuid`
+* `derive_more`
+
+Do not assume a crate is available without checking.
+
+Do not add a dependency for something the standard library handles cleanly.
+
+---
+
+## Implementation Planning
+
+For non-trivial tasks, start with a concise implementation plan.
+
+The plan should include:
+
+* What will change
+* Which files/modules are likely involved
+* Data structures to add or modify
+* Error handling strategy
+* Testing strategy
+* Risks or compatibility concerns
+
+Then provide the code.
+
+For very small tasks, a short explanation plus code is enough.
+
+---
+
+## Review Checklist Before Final Answer
+
+Before finalizing code, verify:
+
+* The code is idiomatic Rust 2024.
+* Function names are clear.
+* Types are explicit where they improve understanding.
+* Errors include useful context.
+* Caller-handled errors use explicit error types when appropriate.
+* Documentation explains inputs, outputs, and failures.
+* Comments explain why, not just what.
+* The implementation fits the existing architecture.
+* No unrelated refactors were introduced.
+* Tests are included or clearly suggested.
+* New config fields have defaults and comments.
+* New dependencies are justified.
+* No production `unwrap()` calls were added without a strong reason.
+* The response is grouped by file path with enough context.
+
+---
+
+## Default Behavior
+
+Unless I specify otherwise:
+
+* Use Rust 2024.
+* Use moderate inline comments.
+* Use detailed function docs.
+* Prefer small unit tests.
+* Prefer `anyhow::Result` with `.context()` for application-level failures.
+* Prefer explicit typed errors when callers are expected to recover or branch on the error.
+* Prefer simple, maintainable architecture over clever abstraction.
+* Prefer code blocks grouped by file path.
+* Prefer focused changes over broad rewrites.
