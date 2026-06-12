@@ -1,3 +1,3736 @@
 Before answering my request, first help clarify it. Ask targeted questions that uncover missing requirements, assumptions, constraints, edge cases, desired behavior, success criteria, and tradeoffs. Focus especially on functionality, implementation details, user workflows, configuration options, error handling, testing expectations, and what should be explicitly out of scope.
 
 Do not ask generic questions just to ask questions. Prioritize the questions that would most improve the quality, correctness, and usefulness of the final answer. After asking the questions, briefly explain why each category matters, and wait for my answers before proposing a solution unless the request is simple enough to proceed with reasonable assumptions.
+
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@
+No extra questions needed to give the core recommendation.
+
+The strategy I would push for is:
+
+> **Use `anyhow` for diagnostic context, but do not use `anyhow` as the engine’s decision model.**
+> The engine should match on a **small typed policy error**, not on every low-level service error.
+
+The important separation is:
+
+| Concern                                                                                                         | Best tool                                                    |
+| --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| “What was the system doing when this failed?”                                                                   | `anyhow::Context`, `tracing`, error chains                   |
+| “Can the engine recover, retry, ignore, reset, or fail hard?”                                                   | Typed enum / policy error                                    |
+| “Did this fail because a file was missing, protocol timed out, hardware was unavailable, config was malformed?” | Typed service/port error where the caller can act on it      |
+| “I only need to log this with breadcrumbs and continue”                                                         | `anyhow::Error` behind a higher-level recoverability variant |
+
+## The core mistake to avoid
+
+I would avoid making the engine know about every leaf error like:
+
+```rust
+match err {
+    ServiceAError::FileNotFound(_) => ...
+    ServiceAError::ProtocolTimeout(_) => ...
+    ServiceBError::FileNotFound(_) => ...
+    ServiceBError::MalformedPacket(_) => ...
+}
+```
+
+That scales badly. It also violates the spirit of hexagonal architecture because the engine becomes coupled to implementation details of the adapters/services.
+
+But I would also avoid making everything just:
+
+```rust
+anyhow::Result<T>
+```
+
+because then the engine loses a clean way to decide:
+
+* retry this cycle
+* skip this operation
+* continue degraded
+* reset hardware
+* fail initialization
+* enter safe mode
+* shut down
+* log and suppress
+
+So the engine should not understand **every error**. It should understand **every recovery policy**.
+
+That is the key design axis.
+
+---
+
+# Recommended model
+
+## 1. Low-level functions can use `anyhow` internally
+
+Inside implementation details, `anyhow` is excellent.
+
+```rust
+use anyhow::{Context, Result};
+
+fn read_file(path: &Path) -> Result<String> {
+    std::fs::read_to_string(path)
+        .with_context(|| format!("reading config file at {}", path.display()))
+}
+```
+
+This is valuable because the error becomes:
+
+```text
+reading config file at /etc/my-app/device.toml
+
+Caused by:
+    No such file or directory
+```
+
+That is exactly the diagnostic value you want.
+
+## 2. Service/port boundaries should convert into meaningful typed errors
+
+At the boundary where the engine calls a service, convert raw failures into a small semantic error enum.
+
+For example, do **not** expose “file not found” if the engine does not actually care that the source was a file.
+
+Expose something meaningful to the engine:
+
+```rust
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum CalibrationError {
+    #[error("required calibration data is missing")]
+    MissingRequiredData {
+        #[source]
+        source: anyhow::Error,
+    },
+
+    #[error("calibration data is invalid")]
+    InvalidData {
+        #[source]
+        source: anyhow::Error,
+    },
+
+    #[error("calibration service is unavailable")]
+    Unavailable {
+        #[source]
+        source: anyhow::Error,
+    },
+}
+```
+
+Then the file-backed implementation can do this:
+
+```rust
+use anyhow::{Context, Result};
+
+pub fn load_calibration_from_file(path: &Path) -> Result<Calibration> {
+    let raw = std::fs::read_to_string(path)
+        .with_context(|| format!("reading calibration file at {}", path.display()))?;
+
+    parse_calibration(&raw)
+        .context("parsing calibration data")
+}
+```
+
+And the service boundary maps it:
+
+```rust
+pub fn load_calibration(&self) -> Result<Calibration, CalibrationError> {
+    load_calibration_from_file(&self.path).map_err(|err| {
+        if is_not_found(&err) {
+            CalibrationError::MissingRequiredData { source: err }
+        } else {
+            CalibrationError::Unavailable { source: err }
+        }
+    })
+}
+```
+
+The engine sees:
+
+```rust
+match calibration_service.load_calibration() {
+    Ok(calibration) => { /* use it */ }
+
+    Err(CalibrationError::MissingRequiredData { source }) => {
+        tracing::error!(error = ?source, "cannot start without calibration");
+        return Err(source.context("engine initialization failed"));
+    }
+
+    Err(CalibrationError::InvalidData { source }) => {
+        tracing::error!(error = ?source, "calibration data is invalid");
+        return Err(source.context("engine initialization failed"));
+    }
+
+    Err(CalibrationError::Unavailable { source }) => {
+        tracing::warn!(error = ?source, "calibration unavailable; retrying later");
+        // retry, degrade, skip cycle, etc.
+    }
+}
+```
+
+The engine is not matching on `std::io::ErrorKind::NotFound`.
+It is matching on **business/application meaning**: missing calibration.
+
+That is much better.
+
+---
+
+# The engine should match on policy, not implementation errors
+
+For a forever-loop system, I would usually introduce an engine-facing error like this:
+
+```rust
+#[derive(Debug, Error)]
+pub enum EngineStepError {
+    #[error("transient failure; operation can be retried")]
+    Retryable {
+        operation: &'static str,
+        #[source]
+        source: anyhow::Error,
+    },
+
+    #[error("operation failed; skip this cycle and continue")]
+    SkipCycle {
+        operation: &'static str,
+        #[source]
+        source: anyhow::Error,
+    },
+
+    #[error("non-critical failure; continue in degraded mode")]
+    Degraded {
+        operation: &'static str,
+        #[source]
+        source: anyhow::Error,
+    },
+
+    #[error("fatal engine failure")]
+    Fatal {
+        operation: &'static str,
+        #[source]
+        source: anyhow::Error,
+    },
+}
+```
+
+Then the main loop only needs to care about policy:
+
+```rust
+loop {
+    match engine.run_one_cycle() {
+        Ok(()) => {}
+
+        Err(EngineStepError::Retryable { operation, source }) => {
+            tracing::warn!(operation, error = ?source, "retryable engine step failed");
+            continue;
+        }
+
+        Err(EngineStepError::SkipCycle { operation, source }) => {
+            tracing::warn!(operation, error = ?source, "skipping current engine cycle");
+            continue;
+        }
+
+        Err(EngineStepError::Degraded { operation, source }) => {
+            tracing::error!(operation, error = ?source, "continuing in degraded mode");
+            engine.enter_degraded_mode();
+            continue;
+        }
+
+        Err(EngineStepError::Fatal { operation, source }) => {
+            tracing::error!(operation, error = ?source, "fatal engine failure");
+            engine.enter_safe_state();
+            break;
+        }
+    }
+}
+```
+
+This is the level the engine should understand.
+
+Not:
+
+```rust
+FileNotFound
+PermissionDenied
+ParseIntError
+ProtocolFrameError
+ChecksumError
+Timeout
+SerdeError
+```
+
+But:
+
+```rust
+Retryable
+SkipCycle
+Degraded
+Fatal
+```
+
+or whatever policies your system actually has.
+
+---
+
+# About your `ContextError` idea
+
+A generic `ContextError` can work, but I would be careful.
+
+If the goal is merely:
+
+> “I want to attach context as errors travel upward.”
+
+Then I would not build your own wrapper. That is already what `anyhow::Context` gives you.
+
+```rust
+service_call()
+    .context("running acquisition service")?
+```
+
+Then one level up:
+
+```rust
+engine_step()
+    .context("executing engine cycle")?
+```
+
+Then one level up:
+
+```rust
+run_engine()
+    .context("running hardware control loop")?
+```
+
+That gives a useful logical stack.
+
+Where a custom wrapper **can** make sense is when you want structured metadata, for example:
+
+```rust
+pub struct ErrorContext {
+    pub component: ComponentId,
+    pub operation: &'static str,
+    pub severity: Severity,
+    pub recoverability: Recoverability,
+}
+```
+
+But if you do that, I would still not replace Rust’s error chain. I would preserve `source`.
+
+For example:
+
+```rust
+#[derive(Debug, Error)]
+#[error("{context:?}")]
+pub struct ContextError {
+    pub context: ErrorContext,
+
+    #[source]
+    pub source: anyhow::Error,
+}
+```
+
+That can be useful if you want machine-readable classification for logging, telemetry, or fault handling.
+
+But I would not make the engine unwrap arbitrary nested `ContextError<T>` values. That recreates the same coupling problem in a different shape.
+
+---
+
+# Rolling up `A` and `B` into `C`
+
+Your `A/B -> C` approach is directionally good, but the purpose of `C` matters.
+
+Bad version:
+
+```rust
+enum C {
+    A(AError),
+    B(BError),
+}
+```
+
+This technically reduces the number of top-level types, but the engine still needs to know about `A` and `B` if it wants to do anything meaningful.
+
+Better version:
+
+```rust
+enum C {
+    MissingRequiredInput(anyhow::Error),
+    InvalidInput(anyhow::Error),
+    TransportUnavailable(anyhow::Error),
+    Retryable(anyhow::Error),
+    Fatal(anyhow::Error),
+}
+```
+
+Now `C` is not just a bag of lower-level errors. It is an application-level contract.
+
+The engine should generally match on this:
+
+```rust
+match err {
+    C::MissingRequiredInput(source) => ...
+    C::InvalidInput(source) => ...
+    C::TransportUnavailable(source) => ...
+    C::Retryable(source) => ...
+    C::Fatal(source) => ...
+}
+```
+
+not this:
+
+```rust
+match err {
+    C::A(AError::FileNotFound(_)) => ...
+    C::B(BError::FileNotFound(_)) => ...
+}
+```
+
+The engine should not care that two different services both had a file-not-found error. It should care whether the missing file means:
+
+* optional cache missing, continue
+* required config missing, fatal
+* calibration missing, safe mode
+* route table missing, rebuild
+* telemetry log missing, ignore
+
+Same low-level error. Different application meaning.
+
+---
+
+# Concrete pattern I would use
+
+## Layer rule
+
+I would use this rule:
+
+| Layer                            | Error style                                                       |
+| -------------------------------- | ----------------------------------------------------------------- |
+| Low-level helper functions       | `anyhow::Result<T>` with `.context(...)`                          |
+| Adapter implementation internals | `anyhow::Result<T>` with rich context                             |
+| Port/service boundary            | `Result<T, TypedServiceError>`                                    |
+| Engine orchestration             | `Result<T, EngineStepError>` or `Result<T, EngineError>`          |
+| Top-level forever loop           | match on engine policy error, log once, continue/retry/safe-state |
+
+This gives you both:
+
+1. **Rich diagnostics**
+2. **Typed recovery behavior**
+
+without making the engine understand every adapter’s error taxonomy.
+
+---
+
+# Example: service error converted to engine policy
+
+```rust
+#[derive(Debug, Error)]
+pub enum PacketServiceError {
+    #[error("packet source timed out")]
+    Timeout {
+        #[source]
+        source: anyhow::Error,
+    },
+
+    #[error("packet source returned malformed data")]
+    MalformedData {
+        #[source]
+        source: anyhow::Error,
+    },
+
+    #[error("packet source is unavailable")]
+    Unavailable {
+        #[source]
+        source: anyhow::Error,
+    },
+}
+```
+
+The engine decides policy:
+
+```rust
+fn acquire_packet(&mut self) -> Result<Packet, EngineStepError> {
+    self.packet_service
+        .read_packet()
+        .map_err(|err| match err {
+            PacketServiceError::Timeout { source } => {
+                EngineStepError::Retryable {
+                    operation: "read packet",
+                    source: source.context("packet service timed out"),
+                }
+            }
+
+            PacketServiceError::MalformedData { source } => {
+                EngineStepError::SkipCycle {
+                    operation: "read packet",
+                    source: source.context("packet service returned malformed data"),
+                }
+            }
+
+            PacketServiceError::Unavailable { source } => {
+                EngineStepError::Degraded {
+                    operation: "read packet",
+                    source: source.context("packet service unavailable"),
+                }
+            }
+        })
+}
+```
+
+Then the loop only matches on `EngineStepError`.
+
+---
+
+# Logging recommendation for forever-loop systems
+
+For a forever loop, I would strongly recommend:
+
+## 1. Add context at the point of knowledge
+
+Do this:
+
+```rust
+read_route_table(path)
+    .with_context(|| format!("loading route table from {}", path.display()))?;
+```
+
+Not merely this:
+
+```rust
+read_route_table(path)?;
+```
+
+The function that knows the path should add the path.
+The function that knows the operation should add the operation.
+
+## 2. Log at the policy boundary
+
+Avoid logging the same error at every layer.
+
+Bad:
+
+```rust
+tracing::error!("failed to read file");
+return Err(err);
+```
+
+then another layer:
+
+```rust
+tracing::error!("service failed");
+return Err(err);
+```
+
+then engine:
+
+```rust
+tracing::error!("engine failed");
+```
+
+That creates noisy duplicate logs.
+
+Better:
+
+* lower layers add context
+* upper policy boundary logs once
+* the error chain contains the details
+
+## 3. Use `tracing` spans for runtime context
+
+`anyhow` gives you a logical error chain, but it is not a full runtime call stack. For forever-running hardware-adjacent applications, I would also use `tracing` spans:
+
+```rust
+#[tracing::instrument(skip(self))]
+fn run_one_cycle(&mut self) -> Result<(), EngineStepError> {
+    self.acquire_packet()?;
+    self.process_packet()?;
+    self.publish_outputs()?;
+    Ok(())
+}
+```
+
+Then your logs can tell you:
+
+* cycle id
+* hardware card id
+* protocol id
+* service name
+* operation name
+* current state
+* retry count
+* degraded/fatal status
+
+That is often more useful than just an error stack.
+
+---
+
+# When to use `anyhow`
+
+Good uses:
+
+```rust
+fn parse_config_file(path: &Path) -> anyhow::Result<Config>
+```
+
+```rust
+fn build_adapter_from_config(config: &Config) -> anyhow::Result<Adapter>
+```
+
+```rust
+fn internal_helper(...) -> anyhow::Result<T>
+```
+
+```rust
+fn main() -> anyhow::Result<()>
+```
+
+Good use with typed wrapper:
+
+```rust
+#[derive(Debug, Error)]
+pub enum ConfigServiceError {
+    #[error("config file is missing")]
+    Missing {
+        #[source]
+        source: anyhow::Error,
+    },
+
+    #[error("config file is invalid")]
+    Invalid {
+        #[source]
+        source: anyhow::Error,
+    },
+}
+```
+
+Less ideal:
+
+```rust
+trait PacketService {
+    fn read_packet(&self) -> anyhow::Result<Packet>;
+}
+```
+
+That is sometimes okay for internal applications, but it weakens the engine’s ability to make typed decisions.
+
+Usually better:
+
+```rust
+trait PacketService {
+    fn read_packet(&self) -> Result<Packet, PacketServiceError>;
+}
+```
+
+---
+
+# A strong practical recommendation
+
+I would propose this architecture to your team:
+
+## 1. Do not make the engine know every service error
+
+The engine should know:
+
+```rust
+EngineError
+EngineStepError
+RecoveryAction
+```
+
+not every `ServiceAError`, `ServiceBError`, `std::io::Error`, parser error, protocol error, etc.
+
+## 2. Services expose typed semantic errors
+
+Service errors should be meaningful at the port boundary:
+
+```rust
+MissingRequiredData
+InvalidData
+Timeout
+Unavailable
+Rejected
+ProtocolViolation
+```
+
+not necessarily raw implementation errors.
+
+## 3. Each typed error should preserve an `anyhow::Error` source
+
+That gives you the diagnostic chain.
+
+```rust
+#[error("device configuration is invalid")]
+InvalidConfig {
+    #[source]
+    source: anyhow::Error,
+}
+```
+
+## 4. The engine maps service errors into policy errors
+
+Example policy categories:
+
+```rust
+Retryable
+SkipCycle
+ContinueDegraded
+ResetSubsystem
+EnterSafeState
+Fatal
+```
+
+## 5. Log once where the policy decision is made
+
+The loop should log the full contextual error chain and then act.
+
+---
+
+# My opinion on your current design
+
+Your instinct is right that raw `anyhow` everywhere creates a problem for recoverability.
+
+Your team’s instinct is also partly right that wrapping errors upward can simplify the engine.
+
+The refinement I would make is:
+
+> Do not roll errors up based on where they came from.
+> Roll them up based on what the caller can do about them.
+
+So instead of this:
+
+```rust
+enum EngineError {
+    ServiceA(ServiceAError),
+    ServiceB(ServiceBError),
+    ServiceC(ServiceCError),
+}
+```
+
+prefer this:
+
+```rust
+enum EngineError {
+    InitializationFailed(anyhow::Error),
+    CycleSkipped(anyhow::Error),
+    RetryableOperationFailed(anyhow::Error),
+    DegradedModeRequired(anyhow::Error),
+    SafeStateRequired(anyhow::Error),
+    Fatal(anyhow::Error),
+}
+```
+
+or, if you need more structure:
+
+```rust
+enum EngineError {
+    InitializationFailed {
+        component: Component,
+        source: anyhow::Error,
+    },
+
+    Retryable {
+        operation: Operation,
+        source: anyhow::Error,
+    },
+
+    Degraded {
+        subsystem: Subsystem,
+        source: anyhow::Error,
+    },
+
+    Fatal {
+        source: anyhow::Error,
+    },
+}
+```
+
+That is the pattern I would use.
+
+---
+
+# Bottom line
+
+For your system, I would use:
+
+```text
+anyhow for context
+thiserror for typed boundaries
+tracing for runtime breadcrumbs
+engine-level policy errors for recovery decisions
+```
+
+The engine should not know every possible error. It should know every possible **action** it can take.
+
+A good rule of thumb:
+
+> If the caller can make a different decision based on the error, make it typed.
+> If the caller can only log it, preserve it as contextual `anyhow::Error`.
+
+That gives you the debuggability you want without turning the engine into a giant global error router.
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@
+Your design is broadly reasonable, but I would tighten the vocabulary and the ownership boundary.
+
+The best version of what you are describing is not:
+
+> “Every service has an error database, and the engine knows every possible service error.”
+
+It is:
+
+> “Every engine port exposes a small, semantic, typed **fault model**. The adapter maps low-level implementation failures into that model, preserving diagnostic context.”
+
+That gives you both camps what they want:
+
+* **Typed handling** for the engine.
+* **Rich context** for debugging and logging.
+* **No explosion** of raw implementation errors in the engine.
+
+---
+
+# The biggest architecture point
+
+In hexagonal architecture, the engine/application core should usually own the port contract.
+
+That means the engine should not depend on an adapter-defined type like:
+
+```rust
+EthernetAdapterError
+TcpSocketError
+LinuxSocketError
+WinSockError
+SerdeJsonError
+```
+
+Instead, the engine should define the kind of communication capability it needs:
+
+```rust
+trait CardLinkPort {
+    fn connect(&mut self) -> Result<(), LinkFault>;
+    fn send_frame(&mut self, frame: Frame) -> Result<(), LinkFault>;
+    fn receive_frame(&mut self) -> Result<ReceiveOutcome<Frame>, LinkFault>;
+}
+```
+
+Then the Ethernet adapter maps its lower-level errors into `LinkFault`.
+
+That distinction matters a lot.
+
+The engine should not know “Ethernet failed because `std::io::ErrorKind::ConnectionReset` happened.”
+The engine should know:
+
+```text
+Peer disconnected
+Link unavailable
+Timeout
+Malformed frame
+Bad peer data
+Configuration mismatch
+Unexpected adapter failure
+```
+
+Those are engine-meaningful fault categories.
+
+---
+
+# Use “fault” or “outcome,” not just “error”
+
+You already identified an important modeling issue: not everything is truly an error.
+
+In a forever-running hardware loop, you probably have at least three categories:
+
+| Category                              | Meaning                                                          | Example                                            |
+| ------------------------------------- | ---------------------------------------------------------------- | -------------------------------------------------- |
+| **Normal outcome**                    | Expected non-success condition                                   | no frame available, no new data, peer not ready    |
+| **Recoverable fault**                 | Something abnormal happened, but the loop can adapt              | timeout, temporary disconnect, stale data          |
+| **Non-recoverable operational fault** | App should keep running but enter safe/degraded/user-alert state | hardware component failed, required config invalid |
+| **Bug / invariant violation**         | Something impossible happened                                    | corrupt internal state, violated assumptions       |
+
+So instead of making every non-happy path an error, use explicit outcomes where appropriate:
+
+```rust
+pub enum ReceiveOutcome<T> {
+    Received(T),
+    NoDataAvailable,
+    PeerNotReady,
+}
+```
+
+Then reserve `Result<T, Fault>` for abnormal conditions:
+
+```rust
+fn receive_frame(&mut self) -> Result<ReceiveOutcome<Frame>, LinkFault>;
+```
+
+That avoids treating “nothing to read this cycle” as an error.
+
+---
+
+# The model I would recommend
+
+Use a **typed fault kind** plus a **contextual source error**.
+
+Conceptually:
+
+```rust
+LinkFault {
+    kind: LinkFaultKind,
+    context: FaultContext,
+    source: anyhow::Error,
+}
+```
+
+The engine matches on `kind`.
+
+The logs print `context` and `source`.
+
+The service/adapter preserves the causal chain using `anyhow::Context`.
+
+---
+
+# Example structure
+
+```rust
+use anyhow::Context;
+use thiserror::Error;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum LinkFaultKind {
+    ConnectFailed,
+    LinkDown,
+    PeerDisconnected,
+    Timeout,
+    MalformedFrame,
+    BadPeerData,
+    ConfigurationMismatch,
+    HardwareUnavailable,
+    Unexpected,
+}
+
+#[derive(Debug, Clone)]
+pub struct FaultContext {
+    pub component: &'static str,
+    pub operation: &'static str,
+    pub local_card: CardId,
+    pub peer_card: Option<CardId>,
+    pub cycle_id: Option<u64>,
+}
+
+#[derive(Debug, Error)]
+#[error("{kind:?} while {operation} in {component}")]
+pub struct LinkFault {
+    pub kind: LinkFaultKind,
+
+    pub component: &'static str,
+    pub operation: &'static str,
+
+    #[source]
+    pub source: anyhow::Error,
+}
+```
+
+Then your adapter can do this:
+
+```rust
+impl EthernetCardLink {
+    pub fn connect(&mut self) -> Result<(), LinkFault> {
+        self.socket
+            .connect(self.peer_addr)
+            .with_context(|| {
+                format!(
+                    "opening Ethernet connection to peer card at {}",
+                    self.peer_addr
+                )
+            })
+            .map_err(|source| LinkFault {
+                kind: LinkFaultKind::ConnectFailed,
+                component: "ethernet_card_link",
+                operation: "connect to peer card",
+                source,
+            })
+    }
+}
+```
+
+The engine gets a typed fault:
+
+```rust
+match link.connect() {
+    Ok(()) => {}
+
+    Err(fault) => match fault.kind {
+        LinkFaultKind::Timeout => {
+            self.fault_tracker.record(fault.kind);
+            tracing::warn!(error = ?fault, "link timeout; will retry next cycle");
+        }
+
+        LinkFaultKind::PeerDisconnected | LinkFaultKind::LinkDown => {
+            self.fault_tracker.record(fault.kind);
+            self.schedule_reconnect();
+            tracing::warn!(error = ?fault, "peer link unavailable");
+        }
+
+        LinkFaultKind::BadPeerData | LinkFaultKind::MalformedFrame => {
+            self.fault_tracker.record(fault.kind);
+            self.mark_peer_data_untrusted();
+            tracing::error!(error = ?fault, "peer sent unusable data");
+        }
+
+        LinkFaultKind::ConfigurationMismatch => {
+            self.raise_user_visible_fault("Card configuration mismatch");
+            tracing::error!(error = ?fault, "configuration mismatch");
+        }
+
+        LinkFaultKind::HardwareUnavailable => {
+            self.enter_degraded_mode();
+            tracing::error!(error = ?fault, "hardware unavailable");
+        }
+
+        LinkFaultKind::Unexpected | LinkFaultKind::ConnectFailed => {
+            tracing::error!(error = ?fault, "unexpected link failure");
+        }
+    },
+}
+```
+
+That is the compromise:
+
+* The engine gets `LinkFaultKind`.
+* The log still gets the full `anyhow` context chain.
+* The adapter owns the nasty details.
+* The engine does not need to know every lower-level error type.
+
+---
+
+# Your “one high-level error type per service” idea is good
+
+I think this is a reasonable design:
+
+```rust
+Engine
+ ├── CardLinkPort -> LinkFault
+ ├── StoragePort -> StorageFault
+ ├── ConfigPort -> ConfigFault
+ ├── TelemetryPort -> TelemetryFault
+ ├── AlgorithmPort -> AlgorithmFault
+ └── UserDisplayPort -> DisplayFault
+```
+
+Having 10-ish high-level port fault types is not inherently a problem.
+
+That is very different from the engine knowing:
+
+```rust
+std::io::Error
+serde_json::Error
+toml::de::Error
+TcpError
+EthernetDriverError
+ParserError
+ChecksumError
+ProtocolDecodeError
+FileNotFound
+PermissionDenied
+Utf8Error
+```
+
+The first list is architectural.
+The second list is implementation leakage.
+
+---
+
+# Where I would avoid going too far
+
+I would avoid making the service error enum a full catalog of every possible thing that happened internally.
+
+Bad:
+
+```rust
+pub enum LinkFault {
+    IoError(std::io::Error),
+    SerdeError(serde_json::Error),
+    Utf8Error(std::str::Utf8Error),
+    ChecksumError(ChecksumError),
+    SocketOptionFailed(SocketOptionError),
+    BufferAllocationFailed(BufferError),
+}
+```
+
+That is just a low-level error dump.
+
+Better:
+
+```rust
+pub enum LinkFaultKind {
+    ConnectFailed,
+    Timeout,
+    PeerDisconnected,
+    MalformedFrame,
+    BadPeerData,
+    HardwareUnavailable,
+    Unexpected,
+}
+```
+
+Then put the detailed low-level error behind `source`.
+
+The typed enum should answer:
+
+> “What can the engine do with this?”
+
+Not:
+
+> “What exact implementation detail failed?”
+
+---
+
+# The engine should probably not match every service variant directly
+
+Even with one fault type per service, you can still reduce the top-level explosion by classifying faults into mitigation categories.
+
+For example:
+
+```rust
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FaultClass {
+    Transient,
+    DataQuality,
+    Configuration,
+    Hardware,
+    PeerUnavailable,
+    InternalUnexpected,
+}
+```
+
+Then each service fault can expose a classification:
+
+```rust
+impl LinkFault {
+    pub fn class(&self) -> FaultClass {
+        match self.kind {
+            LinkFaultKind::Timeout => FaultClass::Transient,
+            LinkFaultKind::ConnectFailed => FaultClass::Transient,
+            LinkFaultKind::LinkDown => FaultClass::PeerUnavailable,
+            LinkFaultKind::PeerDisconnected => FaultClass::PeerUnavailable,
+            LinkFaultKind::MalformedFrame => FaultClass::DataQuality,
+            LinkFaultKind::BadPeerData => FaultClass::DataQuality,
+            LinkFaultKind::ConfigurationMismatch => FaultClass::Configuration,
+            LinkFaultKind::HardwareUnavailable => FaultClass::Hardware,
+            LinkFaultKind::Unexpected => FaultClass::InternalUnexpected,
+        }
+    }
+}
+```
+
+Now the engine can usually do this:
+
+```rust
+match fault.class() {
+    FaultClass::Transient => {
+        self.fault_tracker.record_transient(&fault);
+        self.continue_next_cycle();
+    }
+
+    FaultClass::PeerUnavailable => {
+        self.schedule_reconnect();
+    }
+
+    FaultClass::DataQuality => {
+        self.discard_current_input();
+        self.mark_peer_data_suspect();
+    }
+
+    FaultClass::Configuration => {
+        self.raise_user_visible_fault("Configuration problem detected");
+    }
+
+    FaultClass::Hardware => {
+        self.enter_degraded_mode();
+    }
+
+    FaultClass::InternalUnexpected => {
+        self.log_unexpected_fault(&fault);
+    }
+}
+```
+
+Then only special cases need exact matching:
+
+```rust
+if fault.kind == LinkFaultKind::ConfigurationMismatch {
+    self.raise_user_visible_fault("Card configuration mismatch");
+}
+```
+
+This helps avoid the engine becoming a giant match statement over everything.
+
+---
+
+# You probably want a fault policy layer
+
+For a forever loop, I would strongly consider separating **fault detection** from **fault policy**.
+
+Instead of scattering thresholds everywhere:
+
+```rust
+if timeout_count > 3 {
+    reconnect();
+}
+
+if malformed_count > 5 {
+    mark_peer_bad();
+}
+
+if hardware_errors > 10 {
+    enter_degraded_mode();
+}
+```
+
+Create a small policy object:
+
+```rust
+pub enum FaultAction {
+    IgnoreAndContinue,
+    RetryNextCycle,
+    Reconnect,
+    DiscardCurrentInput,
+    EnterDegradedMode,
+    RaiseUserVisibleFault,
+    RequireSystemRestart,
+}
+
+pub struct FaultPolicy {
+    tracker: FaultTracker,
+}
+
+impl FaultPolicy {
+    pub fn classify_link_fault(&mut self, fault: &LinkFault) -> FaultAction {
+        self.tracker.record_link_fault(fault);
+
+        match fault.kind {
+            LinkFaultKind::Timeout => {
+                if self.tracker.count_recent(fault.kind) >= 3 {
+                    FaultAction::Reconnect
+                } else {
+                    FaultAction::RetryNextCycle
+                }
+            }
+
+            LinkFaultKind::MalformedFrame | LinkFaultKind::BadPeerData => {
+                FaultAction::DiscardCurrentInput
+            }
+
+            LinkFaultKind::ConfigurationMismatch => {
+                FaultAction::RaiseUserVisibleFault
+            }
+
+            LinkFaultKind::HardwareUnavailable => {
+                FaultAction::EnterDegradedMode
+            }
+
+            LinkFaultKind::Unexpected => {
+                FaultAction::RetryNextCycle
+            }
+
+            _ => FaultAction::RetryNextCycle,
+        }
+    }
+}
+```
+
+Then the engine does:
+
+```rust
+let action = self.fault_policy.classify_link_fault(&fault);
+self.apply_fault_action(action, fault);
+```
+
+This is often cleaner than making the engine directly own every threshold.
+
+---
+
+# About a generic `ContextError`
+
+Your generic `ContextError` idea can be good, but I would rename/reframe it.
+
+Instead of:
+
+```rust
+ContextError<T>
+```
+
+I would think in terms of:
+
+```rust
+Fault<K>
+```
+
+Where `K` is the typed fault kind.
+
+For example:
+
+```rust
+pub type LinkFault = Fault<LinkFaultKind>;
+pub type StorageFault = Fault<StorageFaultKind>;
+pub type AlgorithmFault = Fault<AlgorithmFaultKind>;
+```
+
+Conceptually:
+
+```rust
+pub struct Fault<K> {
+    pub kind: K,
+    pub context: FaultContext,
+    pub source: anyhow::Error,
+}
+```
+
+This gives you a reusable wrapper without losing static typing.
+
+The engine can still receive:
+
+```rust
+Result<T, LinkFault>
+```
+
+not just:
+
+```rust
+Result<T, anyhow::Error>
+```
+
+So the engine has a concrete error type, but the fault still carries context.
+
+That is probably close to what your team wants.
+
+---
+
+# `anyhow` at the engine boundary is probably not enough
+
+This version:
+
+```rust
+fn engine_step(&mut self) -> anyhow::Result<()>
+```
+
+is simple, but it creates a problem for your use case.
+
+The engine eventually wants to say:
+
+```text
+Timeout? Count and retry.
+Bad peer data? Discard and mark suspect.
+Configuration mismatch? Raise user-visible error.
+Hardware unavailable? Degraded mode.
+Unexpected? Log and continue if safe.
+```
+
+If everything is `anyhow::Error`, then your options are:
+
+1. Parse error strings — bad.
+2. Downcast dynamically — works, but weaker and easier to misuse.
+3. Give up on typed policy — not acceptable for your system.
+
+`anyhow` is excellent for diagnostics.
+It is not ideal as the primary control-flow contract for a hardware orchestration engine.
+
+---
+
+# `anyhow` downcasting is an escape hatch, not the main design
+
+You technically can do this:
+
+```rust
+if let Some(link_fault) = err.downcast_ref::<LinkFault>() {
+    // handle typed fault
+}
+```
+
+But I would not make that your normal architecture.
+
+That turns typed control flow into runtime discovery.
+
+For engine orchestration, I would prefer:
+
+```rust
+Result<T, LinkFault>
+```
+
+or:
+
+```rust
+Result<T, EngineFault>
+```
+
+over:
+
+```rust
+anyhow::Result<T>
+```
+
+Use `anyhow` inside the fault, not instead of the fault.
+
+---
+
+# Consider an engine-level rollup type
+
+At the engine boundary, you can still roll up service faults into a single engine fault:
+
+```rust
+#[derive(Debug, Error)]
+pub enum EngineFault {
+    #[error("card link fault")]
+    Link(#[from] LinkFault),
+
+    #[error("storage fault")]
+    Storage(#[from] StorageFault),
+
+    #[error("algorithm fault")]
+    Algorithm(#[from] AlgorithmFault),
+
+    #[error("telemetry fault")]
+    Telemetry(#[from] TelemetryFault),
+}
+```
+
+Then engine steps can return:
+
+```rust
+fn run_one_cycle(&mut self) -> Result<(), EngineFault>
+```
+
+But the engine can still inspect the inner fault where needed:
+
+```rust
+match fault {
+    EngineFault::Link(link_fault) => {
+        let action = self.fault_policy.classify_link_fault(&link_fault);
+        self.apply_fault_action(action, link_fault);
+    }
+
+    EngineFault::Storage(storage_fault) => {
+        let action = self.fault_policy.classify_storage_fault(&storage_fault);
+        self.apply_fault_action(action, storage_fault);
+    }
+
+    EngineFault::Algorithm(algorithm_fault) => {
+        let action = self.fault_policy.classify_algorithm_fault(&algorithm_fault);
+        self.apply_fault_action(action, algorithm_fault);
+    }
+
+    EngineFault::Telemetry(telemetry_fault) => {
+        tracing::warn!(error = ?telemetry_fault, "telemetry failed; continuing");
+    }
+}
+```
+
+This is acceptable if you only have 10-ish services.
+
+That is not an explosion. That is the engine knowing about its own ports.
+
+---
+
+# The critical boundary rule
+
+I would use this rule:
+
+> The engine may know about every **port fault type** it directly orchestrates.
+> The engine should not know about every **adapter implementation error** that caused those faults.
+
+So this is fine:
+
+```rust
+EngineFault::Link(LinkFault)
+EngineFault::Storage(StorageFault)
+EngineFault::Algorithm(AlgorithmFault)
+```
+
+This is not ideal:
+
+```rust
+EngineFault::Tcp(std::io::Error)
+EngineFault::Serde(serde_json::Error)
+EngineFault::Toml(toml::de::Error)
+EngineFault::EthernetDriver(EthernetDriverError)
+```
+
+---
+
+# Use context at the lowest knowledgeable layer
+
+The context should be attached where the meaningful information exists.
+
+For example, the adapter knows the peer address:
+
+```rust
+self.socket
+    .connect(addr)
+    .with_context(|| format!("connecting to peer card at {addr}"))?;
+```
+
+The service knows the operation:
+
+```rust
+adapter
+    .connect()
+    .context("establishing card-to-card communication link")?;
+```
+
+The engine knows the cycle/algorithm state:
+
+```rust
+self.card_link
+    .send_frame(frame)
+    .context("publishing control frame during engine cycle")?;
+```
+
+But avoid logging at every layer.
+
+Prefer:
+
+```text
+lower layers: add context
+engine/policy boundary: log once
+```
+
+That prevents duplicate noisy logs while preserving the error chain.
+
+---
+
+# Also use `tracing`, not only error context
+
+`anyhow::Context` gives you a logical error chain. It is not a complete operational timeline.
+
+For hardware/forever-loop software, I would also use `tracing` spans and structured fields:
+
+```rust
+#[tracing::instrument(
+    skip(self),
+    fields(
+        cycle_id = self.cycle_id,
+        local_card = ?self.local_card,
+        peer_card = ?self.peer_card,
+    )
+)]
+fn run_one_cycle(&mut self) -> Result<(), EngineFault> {
+    self.poll_link()?;
+    self.run_algorithm()?;
+    self.publish_outputs()?;
+    Ok(())
+}
+```
+
+You want logs that include:
+
+```text
+cycle_id
+card_id
+peer_card_id
+service
+operation
+fault_kind
+fault_class
+retry_count
+degraded_mode
+last_success_time
+```
+
+The error chain tells you what failed.
+Structured tracing tells you what the system was doing at the time.
+
+You want both.
+
+---
+
+# My recommended strategy
+
+I would propose this to your coworkers:
+
+## 1. Define engine-owned port traits
+
+Example:
+
+```rust
+trait CardLinkPort {
+    fn connect(&mut self) -> Result<(), LinkFault>;
+    fn send_frame(&mut self, frame: Frame) -> Result<(), LinkFault>;
+    fn receive_frame(&mut self) -> Result<ReceiveOutcome<Frame>, LinkFault>;
+}
+```
+
+The engine owns this trait.
+
+The Ethernet adapter implements it.
+
+## 2. Define one semantic fault kind enum per port
+
+Example:
+
+```rust
+enum LinkFaultKind {
+    Timeout,
+    LinkDown,
+    PeerDisconnected,
+    MalformedFrame,
+    BadPeerData,
+    ConfigurationMismatch,
+    HardwareUnavailable,
+    Unexpected,
+}
+```
+
+Keep this small and action-oriented.
+
+## 3. Use a contextual fault wrapper
+
+Example:
+
+```rust
+type LinkFault = Fault<LinkFaultKind>;
+type StorageFault = Fault<StorageFaultKind>;
+type AlgorithmFault = Fault<AlgorithmFaultKind>;
+```
+
+The wrapper carries:
+
+```text
+kind
+component
+operation
+card id
+peer id
+source error
+anyhow context chain
+```
+
+## 4. Convert adapter errors at the port boundary
+
+The Ethernet adapter maps:
+
+```text
+ConnectionReset -> PeerDisconnected
+TimedOut -> Timeout
+Invalid frame decode -> MalformedFrame
+Bad semantic payload -> BadPeerData
+Driver unavailable -> HardwareUnavailable
+Unknown -> Unexpected
+```
+
+## 5. Engine matches on fault kind or fault class
+
+Most logic should use `FaultClass` or `FaultAction`.
+
+Only special cases should match exact `LinkFaultKind`.
+
+## 6. Keep `anyhow` inside the source chain
+
+Do not choose between typed errors and context.
+
+Use both:
+
+```text
+typed outer fault
+contextual inner source
+```
+
+---
+
+# Final opinion
+
+Your proposed design is good **if** the service-layer high-level error is a semantic port fault, not a giant catalog of implementation errors.
+
+The easiest overlooked improvement is this:
+
+> Do not make the engine know “Ethernet errors.”
+> Make the engine know “card communication faults.”
+> Let the Ethernet adapter translate implementation failures into that engine-owned fault model.
+
+So I would avoid:
+
+```rust
+EthernetError
+```
+
+unless Ethernet itself is truly part of the engine’s domain language.
+
+I would prefer:
+
+```rust
+CardLinkFault
+PeerCommunicationFault
+InterCardTransportFault
+```
+
+The engine is allowed to know those because they are part of its orchestration responsibility.
+
+The compromise design is:
+
+```text
+thiserror for typed port/engine faults
+anyhow::Context for diagnostic chains
+tracing for structured runtime breadcrumbs
+FaultPolicy/FaultTracker for forever-loop mitigation behavior
+normal Outcome enums for expected non-success states
+panic only for bugs/invariants, not operational faults
+```
+
+The rule of thumb I would use:
+
+> If the engine can make a different decision based on it, make it a typed fault kind.
+> If the engine can only log it, keep it as contextual source detail.
+> If it is expected during normal polling, model it as an outcome, not an error.
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@
+Below is a compact example of how this could look with **three service/port layers**:
+
+1. `EthernetPort` / card communication
+2. `AlgorithmPort` / math or domain algorithm
+3. `StringUtilityPort` / string normalization/parsing/transformation
+
+The main idea:
+
+```text
+Adapter/internal details
+        ↓
+Typed service fault
+        ↓
+Engine rollup fault
+        ↓
+Engine policy decision
+```
+
+---
+
+# 1. Shared contextual fault wrapper
+
+You can define a reusable wrapper that gives every fault:
+
+* a typed `kind`
+* operation/component context
+* optional runtime metadata
+* an `anyhow::Error` source chain
+
+```rust
+use anyhow::Error;
+use thiserror::Error;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum FaultClass {
+    Transient,
+    DataQuality,
+    Configuration,
+    Hardware,
+    Internal,
+    Unexpected,
+}
+
+#[derive(Debug, Error)]
+#[error("{component}::{operation} failed with {kind:?}")]
+pub struct Fault<K>
+where
+    K: std::fmt::Debug + Send + Sync + 'static,
+{
+    pub kind: K,
+    pub class: FaultClass,
+    pub component: &'static str,
+    pub operation: &'static str,
+
+    #[source]
+    pub source: Error,
+}
+```
+
+Then each service gets a strongly typed alias:
+
+```rust
+pub type EthernetFault = Fault<EthernetFaultKind>;
+pub type AlgorithmFault = Fault<AlgorithmFaultKind>;
+pub type TextFault = Fault<TextFaultKind>;
+```
+
+This gives you both:
+
+```text
+typed outer error
+contextual inner error chain
+```
+
+---
+
+# 2. Ethernet service fault
+
+The Ethernet layer should not expose raw socket/driver/file errors to the engine. It should expose engine-meaningful communication faults.
+
+```rust
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum EthernetFaultKind {
+    ConnectFailed,
+    LinkDown,
+    PeerDisconnected,
+    Timeout,
+    MalformedFrame,
+    BadPeerData,
+    ConfigurationMismatch,
+    HardwareUnavailable,
+    Unexpected,
+}
+```
+
+Example port trait:
+
+```rust
+pub trait EthernetPort {
+    fn connect(&mut self) -> Result<(), EthernetFault>;
+    fn send_frame(&mut self, frame: Frame) -> Result<(), EthernetFault>;
+    fn receive_frame(&mut self) -> Result<ReceiveOutcome<Frame>, EthernetFault>;
+}
+```
+
+Example expected outcome:
+
+```rust
+pub enum ReceiveOutcome<T> {
+    Received(T),
+    NoDataAvailable,
+    PeerNotReady,
+}
+```
+
+`NoDataAvailable` is not an error. It is a normal loop condition.
+
+Example adapter mapping:
+
+```rust
+use anyhow::Context;
+
+impl EthernetPort for TcpEthernetAdapter {
+    fn connect(&mut self) -> Result<(), EthernetFault> {
+        self.socket
+            .connect(self.peer_addr)
+            .with_context(|| {
+                format!("connecting to peer card over Ethernet at {}", self.peer_addr)
+            })
+            .map_err(|source| EthernetFault {
+                kind: EthernetFaultKind::ConnectFailed,
+                class: FaultClass::Transient,
+                component: "tcp_ethernet_adapter",
+                operation: "connect",
+                source,
+            })
+    }
+
+    fn receive_frame(&mut self) -> Result<ReceiveOutcome<Frame>, EthernetFault> {
+        let bytes = self.socket
+            .try_receive()
+            .context("receiving raw Ethernet payload")
+            .map_err(|source| EthernetFault {
+                kind: EthernetFaultKind::Timeout,
+                class: FaultClass::Transient,
+                component: "tcp_ethernet_adapter",
+                operation: "receive_frame",
+                source,
+            })?;
+
+        let Some(bytes) = bytes else {
+            return Ok(ReceiveOutcome::NoDataAvailable);
+        };
+
+        decode_frame(&bytes)
+            .context("decoding inter-card frame")
+            .map(ReceiveOutcome::Received)
+            .map_err(|source| EthernetFault {
+                kind: EthernetFaultKind::MalformedFrame,
+                class: FaultClass::DataQuality,
+                component: "tcp_ethernet_adapter",
+                operation: "decode_frame",
+                source,
+            })
+    }
+}
+```
+
+---
+
+# 3. Algorithm service fault
+
+An algorithm error should be about algorithm/domain meaning, not low-level implementation details.
+
+```rust
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum AlgorithmFaultKind {
+    InvalidInput,
+    InputOutOfRange,
+    InsufficientData,
+    NumericalInstability,
+    ConvergenceFailed,
+    UnsafeOutput,
+    Unexpected,
+}
+```
+
+Example port:
+
+```rust
+pub trait AlgorithmPort {
+    fn compute_output(&self, input: AlgorithmInput) -> Result<AlgorithmOutput, AlgorithmFault>;
+}
+```
+
+Example implementation:
+
+```rust
+impl AlgorithmPort for ControlAlgorithm {
+    fn compute_output(&self, input: AlgorithmInput) -> Result<AlgorithmOutput, AlgorithmFault> {
+        if input.samples.is_empty() {
+            return Err(AlgorithmFault {
+                kind: AlgorithmFaultKind::InsufficientData,
+                class: FaultClass::DataQuality,
+                component: "control_algorithm",
+                operation: "compute_output",
+                source: anyhow::anyhow!("input contained zero samples"),
+            });
+        }
+
+        if !input.value.is_finite() {
+            return Err(AlgorithmFault {
+                kind: AlgorithmFaultKind::InvalidInput,
+                class: FaultClass::DataQuality,
+                component: "control_algorithm",
+                operation: "validate_input",
+                source: anyhow::anyhow!("input value was NaN or infinite"),
+            });
+        }
+
+        let output = run_math(input)
+            .context("running control algorithm math")
+            .map_err(|source| AlgorithmFault {
+                kind: AlgorithmFaultKind::NumericalInstability,
+                class: FaultClass::Internal,
+                component: "control_algorithm",
+                operation: "run_math",
+                source,
+            })?;
+
+        if !output.value.is_finite() {
+            return Err(AlgorithmFault {
+                kind: AlgorithmFaultKind::UnsafeOutput,
+                class: FaultClass::DataQuality,
+                component: "control_algorithm",
+                operation: "validate_output",
+                source: anyhow::anyhow!("algorithm produced NaN or infinite output"),
+            });
+        }
+
+        Ok(output)
+    }
+}
+```
+
+The engine does not need to know whether the algorithm failed because of:
+
+```text
+division by zero
+bad matrix inverse
+NaN propagation
+overflow
+bad interpolation table
+```
+
+unless those distinctions affect mitigation.
+
+The engine probably only needs to know:
+
+```text
+bad input
+not enough data
+math did not converge
+unsafe output
+unexpected algorithm fault
+```
+
+---
+
+# 4. String utility fault
+
+This one is interesting because a string manipulation utility may not deserve to be a full “service layer” unless the engine can actually do something meaningful with its failures.
+
+If it is just a helper, you might keep it internal:
+
+```rust
+fn normalize_name(raw: &str) -> anyhow::Result<NormalizedName>;
+```
+
+But if the engine can make decisions based on text-processing failures, then give it a typed fault.
+
+```rust
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum TextFaultKind {
+    MissingRequiredField,
+    InvalidEncoding,
+    InvalidFormat,
+    UnknownToken,
+    NormalizationFailed,
+    Unexpected,
+}
+```
+
+Example port:
+
+```rust
+pub trait TextProcessingPort {
+    fn parse_message_name(&self, raw: &str) -> Result<MessageName, TextFault>;
+}
+```
+
+Example implementation:
+
+```rust
+impl TextProcessingPort for StandardTextProcessor {
+    fn parse_message_name(&self, raw: &str) -> Result<MessageName, TextFault> {
+        if raw.trim().is_empty() {
+            return Err(TextFault {
+                kind: TextFaultKind::MissingRequiredField,
+                class: FaultClass::DataQuality,
+                component: "standard_text_processor",
+                operation: "parse_message_name",
+                source: anyhow::anyhow!("message name was empty"),
+            });
+        }
+
+        let normalized = normalize_message_name(raw)
+            .with_context(|| format!("normalizing message name from raw value: {raw:?}"))
+            .map_err(|source| TextFault {
+                kind: TextFaultKind::NormalizationFailed,
+                class: FaultClass::DataQuality,
+                component: "standard_text_processor",
+                operation: "normalize_message_name",
+                source,
+            })?;
+
+        MessageName::try_from(normalized)
+            .context("constructing validated message name")
+            .map_err(|source| TextFault {
+                kind: TextFaultKind::InvalidFormat,
+                class: FaultClass::DataQuality,
+                component: "standard_text_processor",
+                operation: "validate_message_name",
+                source,
+            })
+    }
+}
+```
+
+But I would be careful here.
+
+If the string utility is just an implementation detail inside the Ethernet adapter, then the engine probably should not see `TextFault` at all. The Ethernet adapter should convert it into something like:
+
+```rust
+EthernetFaultKind::MalformedFrame
+```
+
+or:
+
+```rust
+EthernetFaultKind::BadPeerData
+```
+
+That keeps the engine cleaner.
+
+---
+
+# 5. Engine-level rollup fault
+
+The engine can roll up all port/service faults into one type:
+
+```rust
+#[derive(Debug, Error)]
+pub enum EngineFault {
+    #[error("Ethernet communication fault")]
+    Ethernet(#[from] EthernetFault),
+
+    #[error("algorithm fault")]
+    Algorithm(#[from] AlgorithmFault),
+
+    #[error("text processing fault")]
+    Text(#[from] TextFault),
+}
+```
+
+Now engine operations can use `?` naturally:
+
+```rust
+pub struct Engine<E, A, T> {
+    ethernet: E,
+    algorithm: A,
+    text: T,
+    fault_policy: FaultPolicy,
+}
+
+impl<E, A, T> Engine<E, A, T>
+where
+    E: EthernetPort,
+    A: AlgorithmPort,
+    T: TextProcessingPort,
+{
+    pub fn run_one_cycle(&mut self) -> Result<(), EngineFault> {
+        let frame = match self.ethernet.receive_frame()? {
+            ReceiveOutcome::Received(frame) => frame,
+            ReceiveOutcome::NoDataAvailable => return Ok(()),
+            ReceiveOutcome::PeerNotReady => return Ok(()),
+        };
+
+        let name = self.text.parse_message_name(frame.message_name())?;
+
+        let input = AlgorithmInput::from_frame_and_name(frame, name);
+        let output = self.algorithm.compute_output(input)?;
+
+        self.ethernet.send_frame(Frame::from_output(output))?;
+
+        Ok(())
+    }
+}
+```
+
+This is clean:
+
+```rust
+self.ethernet.receive_frame()?;
+self.text.parse_message_name(...)?
+self.algorithm.compute_output(...)?
+self.ethernet.send_frame(...)?
+```
+
+Each `?` preserves the typed error through `EngineFault`.
+
+---
+
+# 6. Engine forever-loop handling
+
+The forever loop should not just crash on `EngineFault`.
+
+It should route the fault into policy.
+
+```rust
+impl<E, A, T> Engine<E, A, T>
+where
+    E: EthernetPort,
+    A: AlgorithmPort,
+    T: TextProcessingPort,
+{
+    pub fn run_forever(&mut self) -> ! {
+        loop {
+            match self.run_one_cycle() {
+                Ok(()) => {
+                    self.fault_policy.record_success();
+                }
+
+                Err(fault) => {
+                    let action = self.fault_policy.decide(&fault);
+                    self.apply_fault_action(action, fault);
+                }
+            }
+        }
+    }
+}
+```
+
+Policy action:
+
+```rust
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FaultAction {
+    IgnoreAndContinue,
+    RetryNextCycle,
+    ReconnectEthernet,
+    DiscardCurrentInput,
+    EnterDegradedMode,
+    RaiseUserVisibleFault,
+    RequireSystemRestart,
+}
+```
+
+Policy decision:
+
+```rust
+pub struct FaultPolicy {
+    recent_ethernet_timeouts: usize,
+    recent_bad_frames: usize,
+    recent_algorithm_faults: usize,
+}
+
+impl FaultPolicy {
+    pub fn decide(&mut self, fault: &EngineFault) -> FaultAction {
+        match fault {
+            EngineFault::Ethernet(fault) => self.decide_ethernet(fault),
+            EngineFault::Algorithm(fault) => self.decide_algorithm(fault),
+            EngineFault::Text(fault) => self.decide_text(fault),
+        }
+    }
+
+    fn decide_ethernet(&mut self, fault: &EthernetFault) -> FaultAction {
+        match fault.kind {
+            EthernetFaultKind::Timeout => {
+                self.recent_ethernet_timeouts += 1;
+
+                if self.recent_ethernet_timeouts >= 3 {
+                    FaultAction::ReconnectEthernet
+                } else {
+                    FaultAction::RetryNextCycle
+                }
+            }
+
+            EthernetFaultKind::PeerDisconnected | EthernetFaultKind::LinkDown => {
+                FaultAction::ReconnectEthernet
+            }
+
+            EthernetFaultKind::MalformedFrame | EthernetFaultKind::BadPeerData => {
+                self.recent_bad_frames += 1;
+                FaultAction::DiscardCurrentInput
+            }
+
+            EthernetFaultKind::ConfigurationMismatch => {
+                FaultAction::RaiseUserVisibleFault
+            }
+
+            EthernetFaultKind::HardwareUnavailable => {
+                FaultAction::EnterDegradedMode
+            }
+
+            EthernetFaultKind::ConnectFailed | EthernetFaultKind::Unexpected => {
+                FaultAction::RetryNextCycle
+            }
+        }
+    }
+
+    fn decide_algorithm(&mut self, fault: &AlgorithmFault) -> FaultAction {
+        match fault.kind {
+            AlgorithmFaultKind::InvalidInput
+            | AlgorithmFaultKind::InputOutOfRange
+            | AlgorithmFaultKind::InsufficientData => {
+                FaultAction::DiscardCurrentInput
+            }
+
+            AlgorithmFaultKind::NumericalInstability
+            | AlgorithmFaultKind::ConvergenceFailed => {
+                self.recent_algorithm_faults += 1;
+
+                if self.recent_algorithm_faults >= 5 {
+                    FaultAction::EnterDegradedMode
+                } else {
+                    FaultAction::RetryNextCycle
+                }
+            }
+
+            AlgorithmFaultKind::UnsafeOutput => {
+                FaultAction::EnterDegradedMode
+            }
+
+            AlgorithmFaultKind::Unexpected => {
+                FaultAction::RaiseUserVisibleFault
+            }
+        }
+    }
+
+    fn decide_text(&mut self, fault: &TextFault) -> FaultAction {
+        match fault.kind {
+            TextFaultKind::MissingRequiredField
+            | TextFaultKind::InvalidEncoding
+            | TextFaultKind::InvalidFormat
+            | TextFaultKind::UnknownToken
+            | TextFaultKind::NormalizationFailed => {
+                FaultAction::DiscardCurrentInput
+            }
+
+            TextFaultKind::Unexpected => {
+                FaultAction::RetryNextCycle
+            }
+        }
+    }
+}
+```
+
+Then the engine applies the action:
+
+```rust
+impl<E, A, T> Engine<E, A, T>
+where
+    E: EthernetPort,
+    A: AlgorithmPort,
+    T: TextProcessingPort,
+{
+    fn apply_fault_action(&mut self, action: FaultAction, fault: EngineFault) {
+        match action {
+            FaultAction::IgnoreAndContinue => {
+                tracing::debug!(error = ?fault, "ignoring non-critical fault");
+            }
+
+            FaultAction::RetryNextCycle => {
+                tracing::warn!(error = ?fault, "will retry next engine cycle");
+            }
+
+            FaultAction::ReconnectEthernet => {
+                tracing::warn!(error = ?fault, "reconnecting Ethernet link");
+                let _ = self.ethernet.connect();
+            }
+
+            FaultAction::DiscardCurrentInput => {
+                tracing::warn!(error = ?fault, "discarding current input");
+            }
+
+            FaultAction::EnterDegradedMode => {
+                tracing::error!(error = ?fault, "entering degraded mode");
+                self.enter_degraded_mode();
+            }
+
+            FaultAction::RaiseUserVisibleFault => {
+                tracing::error!(error = ?fault, "raising user-visible fault");
+                self.raise_user_visible_fault("System fault detected");
+            }
+
+            FaultAction::RequireSystemRestart => {
+                tracing::error!(error = ?fault, "system restart required");
+                self.raise_user_visible_fault("Restart required");
+            }
+        }
+    }
+}
+```
+
+---
+
+# 7. How the whole flow looks
+
+Example: Ethernet socket times out.
+
+```text
+socket.try_receive()
+    ↓ std::io::ErrorKind::TimedOut
+anyhow context added:
+    "receiving raw Ethernet payload"
+    ↓
+EthernetFault {
+    kind: Timeout,
+    class: Transient,
+    component: "tcp_ethernet_adapter",
+    operation: "receive_frame",
+    source: anyhow chain
+}
+    ↓
+EngineFault::Ethernet(EthernetFault)
+    ↓
+FaultPolicy::decide()
+    ↓
+FaultAction::RetryNextCycle
+```
+
+Example: Algorithm produces invalid output.
+
+```text
+run_math()
+    ↓ numerical instability / NaN
+AlgorithmFault {
+    kind: UnsafeOutput,
+    class: DataQuality,
+    component: "control_algorithm",
+    operation: "validate_output",
+    source: anyhow chain
+}
+    ↓
+EngineFault::Algorithm(AlgorithmFault)
+    ↓
+FaultPolicy::decide()
+    ↓
+FaultAction::EnterDegradedMode
+```
+
+Example: String parser fails inside Ethernet frame decoding.
+
+You have two options.
+
+## Option A: expose text processing as its own engine service
+
+```text
+TextFault::InvalidFormat
+    ↓
+EngineFault::Text
+    ↓
+DiscardCurrentInput
+```
+
+## Option B: hide text parsing inside Ethernet adapter
+
+```text
+Text parse failed
+    ↓
+EthernetFaultKind::MalformedFrame
+    ↓
+EngineFault::Ethernet
+    ↓
+DiscardCurrentInput
+```
+
+I would prefer **Option B** if the string parsing is merely part of decoding the communication frame.
+
+I would prefer **Option A** only if text processing is a real engine-level capability.
+
+---
+
+# 8. Important design rule
+
+Not every library/helper deserves its own engine-visible fault type.
+
+Use this rule:
+
+> If the engine can make a distinct decision based on the failure, expose a typed fault.
+> If not, convert it into the nearest service-level fault and preserve the original error as context.
+
+So a string utility probably should not leak upward as `TextFault` if the engine only cares that the incoming frame was invalid.
+
+This:
+
+```rust
+EngineFault::Text(TextFaultKind::InvalidFormat)
+```
+
+may be worse than:
+
+```rust
+EngineFault::Ethernet(EthernetFaultKind::MalformedFrame)
+```
+
+because the second one tells the engine what actually matters:
+
+> “The peer communication input was malformed.”
+
+---
+
+# 9. Best practical shape
+
+For your example, I would probably organize it like this:
+
+```text
+engine/
+  engine.rs
+  fault_policy.rs
+  fault.rs
+
+ports/
+  card_link.rs
+  algorithm.rs
+  display.rs
+  storage.rs
+
+adapters/
+  ethernet_card_link.rs
+  control_algorithm.rs
+  file_storage.rs
+
+utils/
+  text.rs
+```
+
+Where:
+
+```rust
+// ports/card_link.rs
+pub trait CardLinkPort {
+    fn receive_frame(&mut self) -> Result<ReceiveOutcome<Frame>, CardLinkFault>;
+    fn send_frame(&mut self, frame: Frame) -> Result<(), CardLinkFault>;
+}
+
+pub type CardLinkFault = Fault<CardLinkFaultKind>;
+
+pub enum CardLinkFaultKind {
+    Timeout,
+    PeerDisconnected,
+    MalformedFrame,
+    BadPeerData,
+    ConfigurationMismatch,
+    HardwareUnavailable,
+    Unexpected,
+}
+```
+
+Then the Ethernet adapter is just one implementation:
+
+```rust
+// adapters/ethernet_card_link.rs
+impl CardLinkPort for EthernetCardLink {
+    // maps socket/string/parse/driver errors into CardLinkFault
+}
+```
+
+That is the most hexagonal version.
+
+I would not call the engine-facing type `EthernetFault` unless Ethernet is part of the core domain language.
+
+I would call it something like:
+
+```rust
+CardLinkFault
+InterCardCommunicationFault
+PeerCommunicationFault
+TransportFault
+```
+
+---
+
+# Bottom line
+
+With multiple services, the clean pattern is:
+
+```text
+Each port has one small semantic fault type.
+Each adapter maps implementation errors into that fault type.
+The engine rolls service faults into EngineFault.
+The fault policy maps EngineFault into FaultAction.
+The engine applies FaultAction and logs the contextual source chain.
+```
+
+The engine sees:
+
+```rust
+EngineFault::CardLink(CardLinkFaultKind::Timeout)
+EngineFault::Algorithm(AlgorithmFaultKind::UnsafeOutput)
+EngineFault::Text(TextFaultKind::InvalidFormat)
+```
+
+But it does **not** see:
+
+```rust
+std::io::ErrorKind::TimedOut
+serde_json::Error
+Utf8Error
+ParseIntError
+TcpSocketError
+```
+
+That is the design sweet spot: **typed where behavior changes, contextual where diagnostics matter.**
+@@@@@@@@@@@@@@@@@@@@@@@@
+
+# General mental model
+
+In this design, a **fault** is not just “an error happened.”
+
+A **fault** is a structured report from a service/port saying:
+
+> “Something abnormal happened while performing this operation, and the engine may need to decide what to do about it.”
+
+A fault should answer two different questions:
+
+| Question                                       | Example                                                            | Used by               |
+| ---------------------------------------------- | ------------------------------------------------------------------ | --------------------- |
+| **What kind of thing went wrong?**             | `Timeout`, `MalformedFrame`, `InvalidInput`, `HardwareUnavailable` | Engine / fault policy |
+| **What exactly was happening when it failed?** | “receiving frame from peer card 2 over Ethernet”                   | Logs / diagnostics    |
+| **What caused it internally?**                 | `std::io::Error`, parser error, algorithm error                    | Debugging             |
+| **How serious is it generally?**               | transient, data-quality, configuration, hardware                   | Fault policy          |
+| **What should we do now?**                     | retry, reconnect, discard input, degraded mode                     | Engine policy         |
+
+The major split is:
+
+```text
+Typed fault kind      = engine decision-making
+anyhow context chain  = debugging / logging
+fault policy          = maps faults into actions
+```
+
+---
+
+# What is contained in a fault?
+
+A practical fault usually contains:
+
+```text
+kind        - typed, service-specific category
+class       - broad category such as transient/configuration/hardware
+component   - which service/adapter produced it
+operation   - what the service was doing
+source      - original error with anyhow context chain
+metadata    - optional IDs, cycle number, peer card, etc.
+```
+
+For example:
+
+```text
+CardLinkFault {
+    kind: Timeout,
+    class: Transient,
+    component: "ethernet_card_link",
+    operation: "receive_frame",
+    local_card: CardA,
+    peer_card: CardB,
+    source: "receiving raw Ethernet payload: operation timed out"
+}
+```
+
+The engine can match on:
+
+```rust
+CardLinkFaultKind::Timeout
+```
+
+while logs still contain:
+
+```text
+receiving frame from peer CardB
+receiving raw Ethernet payload
+operation timed out
+```
+
+---
+
+# What does each service layer implement?
+
+Each service/port should expose a small typed fault model that represents what the **engine can meaningfully react to**.
+
+For example:
+
+```text
+CardLinkPort       -> CardLinkFault
+AlgorithmPort      -> AlgorithmFault
+DisplayPort        -> DisplayFault
+StoragePort        -> StorageFault
+```
+
+The Ethernet adapter may internally encounter socket errors, parse errors, framing errors, driver errors, or timeouts. But it should translate those into the engine-facing `CardLinkFault`.
+
+The engine should not need to know that Ethernet internally used TCP, UDP, a driver library, JSON, binary frames, or string parsing.
+
+---
+
+# Example application shape
+
+Assume this structure:
+
+```text
+main.rs
+  creates adapters
+  creates engine
+  calls engine.start()
+
+Engine
+  owns the forever loop
+  calls service ports
+  handles faults
+
+Ports
+  define engine-facing traits and fault types
+
+Adapters
+  implement ports
+  map implementation errors into typed faults
+```
+
+The dependency direction should look like this:
+
+```text
+main/application composition
+        ↓
+engine
+        ↓
+ports / traits / fault types
+        ↑
+adapters implement ports
+```
+
+---
+
+# End-to-end example
+
+This example uses three services:
+
+1. `CardLinkPort` — communication between hardware cards
+2. `AlgorithmPort` — computes an output from incoming data
+3. `DisplayPort` — reports user-visible system status
+
+The engine calls these services in a forever loop.
+
+---
+
+## 1. Shared fault model
+
+```rust
+use anyhow::Error;
+use thiserror::Error;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum FaultClass {
+    Transient,
+    DataQuality,
+    Configuration,
+    Hardware,
+    Internal,
+    Unexpected,
+}
+
+#[derive(Debug, Error)]
+#[error("{component}::{operation} failed with {kind:?}")]
+pub struct Fault<K>
+where
+    K: std::fmt::Debug + Send + Sync + 'static,
+{
+    pub kind: K,
+    pub class: FaultClass,
+    pub component: &'static str,
+    pub operation: &'static str,
+
+    pub local_card: Option<CardId>,
+    pub peer_card: Option<CardId>,
+    pub cycle_id: Option<u64>,
+
+    #[source]
+    pub source: Error,
+}
+```
+
+The important part is that `kind` is typed, while `source` preserves the diagnostic chain.
+
+---
+
+## 2. Domain placeholders
+
+```rust
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct CardId(pub u8);
+
+#[derive(Debug)]
+pub struct Frame {
+    pub payload: Vec<u8>,
+}
+
+#[derive(Debug)]
+pub struct AlgorithmInput {
+    pub value: f64,
+}
+
+#[derive(Debug)]
+pub struct AlgorithmOutput {
+    pub command_value: f64,
+}
+
+#[derive(Debug)]
+pub enum ReceiveOutcome<T> {
+    Received(T),
+    NoDataAvailable,
+    PeerNotReady,
+}
+```
+
+Notice that `NoDataAvailable` is not a fault. It is a normal polling outcome.
+
+That is important in forever-loop hardware code. Do not turn every non-success condition into an error.
+
+---
+
+# 3. Service 1: card communication
+
+The engine-facing service is not necessarily called `EthernetPort`.
+
+It is better to name it by what the engine needs:
+
+```rust
+pub trait CardLinkPort {
+    fn receive_frame(&mut self, cycle_id: u64) -> Result<ReceiveOutcome<Frame>, CardLinkFault>;
+    fn send_frame(&mut self, frame: Frame, cycle_id: u64) -> Result<(), CardLinkFault>;
+    fn reconnect(&mut self) -> Result<(), CardLinkFault>;
+}
+```
+
+The fault kind is semantic:
+
+```rust
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum CardLinkFaultKind {
+    ConnectFailed,
+    Timeout,
+    LinkDown,
+    PeerDisconnected,
+    MalformedFrame,
+    BadPeerData,
+    ConfigurationMismatch,
+    HardwareUnavailable,
+    Unexpected,
+}
+
+pub type CardLinkFault = Fault<CardLinkFaultKind>;
+```
+
+This is the type the engine knows.
+
+The engine does **not** need to know about:
+
+```text
+std::io::ErrorKind::TimedOut
+socket library errors
+frame decoder errors
+UTF-8 errors
+checksum errors
+```
+
+Those become `source`.
+
+---
+
+## Ethernet adapter implementation
+
+```rust
+use anyhow::{anyhow, Context};
+
+pub struct EthernetCardLink {
+    local_card: CardId,
+    peer_card: CardId,
+    peer_addr: String,
+    socket: FakeSocket,
+}
+
+impl CardLinkPort for EthernetCardLink {
+    fn receive_frame(&mut self, cycle_id: u64) -> Result<ReceiveOutcome<Frame>, CardLinkFault> {
+        let maybe_bytes = self.socket
+            .try_receive()
+            .with_context(|| {
+                format!(
+                    "receiving raw Ethernet payload from peer card {:?} at {}",
+                    self.peer_card,
+                    self.peer_addr
+                )
+            })
+            .map_err(|source| CardLinkFault {
+                kind: CardLinkFaultKind::Timeout,
+                class: FaultClass::Transient,
+                component: "ethernet_card_link",
+                operation: "receive_frame",
+                local_card: Some(self.local_card),
+                peer_card: Some(self.peer_card),
+                cycle_id: Some(cycle_id),
+                source,
+            })?;
+
+        let Some(bytes) = maybe_bytes else {
+            return Ok(ReceiveOutcome::NoDataAvailable);
+        };
+
+        let frame = decode_frame(&bytes)
+            .context("decoding inter-card communication frame")
+            .map_err(|source| CardLinkFault {
+                kind: CardLinkFaultKind::MalformedFrame,
+                class: FaultClass::DataQuality,
+                component: "ethernet_card_link",
+                operation: "decode_frame",
+                local_card: Some(self.local_card),
+                peer_card: Some(self.peer_card),
+                cycle_id: Some(cycle_id),
+                source,
+            })?;
+
+        Ok(ReceiveOutcome::Received(frame))
+    }
+
+    fn send_frame(&mut self, frame: Frame, cycle_id: u64) -> Result<(), CardLinkFault> {
+        self.socket
+            .send(&frame.payload)
+            .context("sending command frame to peer card")
+            .map_err(|source| CardLinkFault {
+                kind: CardLinkFaultKind::PeerDisconnected,
+                class: FaultClass::Transient,
+                component: "ethernet_card_link",
+                operation: "send_frame",
+                local_card: Some(self.local_card),
+                peer_card: Some(self.peer_card),
+                cycle_id: Some(cycle_id),
+                source,
+            })
+    }
+
+    fn reconnect(&mut self) -> Result<(), CardLinkFault> {
+        self.socket
+            .connect(&self.peer_addr)
+            .with_context(|| {
+                format!(
+                    "reconnecting Ethernet link to peer card {:?} at {}",
+                    self.peer_card,
+                    self.peer_addr
+                )
+            })
+            .map_err(|source| CardLinkFault {
+                kind: CardLinkFaultKind::ConnectFailed,
+                class: FaultClass::Transient,
+                component: "ethernet_card_link",
+                operation: "reconnect",
+                local_card: Some(self.local_card),
+                peer_card: Some(self.peer_card),
+                cycle_id: None,
+                source,
+            })
+    }
+}
+```
+
+The adapter creates the fault at the boundary between implementation details and engine-facing behavior.
+
+---
+
+# 4. Service 2: algorithm
+
+The algorithm service exposes faults that are meaningful to the engine.
+
+```rust
+pub trait AlgorithmPort {
+    fn compute_output(
+        &self,
+        input: AlgorithmInput,
+        cycle_id: u64,
+    ) -> Result<AlgorithmOutput, AlgorithmFault>;
+}
+```
+
+Fault kind:
+
+```rust
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum AlgorithmFaultKind {
+    InvalidInput,
+    InputOutOfRange,
+    InsufficientData,
+    NumericalInstability,
+    ConvergenceFailed,
+    UnsafeOutput,
+    Unexpected,
+}
+
+pub type AlgorithmFault = Fault<AlgorithmFaultKind>;
+```
+
+Implementation:
+
+```rust
+pub struct ControlAlgorithm;
+
+impl AlgorithmPort for ControlAlgorithm {
+    fn compute_output(
+        &self,
+        input: AlgorithmInput,
+        cycle_id: u64,
+    ) -> Result<AlgorithmOutput, AlgorithmFault> {
+        if !input.value.is_finite() {
+            return Err(AlgorithmFault {
+                kind: AlgorithmFaultKind::InvalidInput,
+                class: FaultClass::DataQuality,
+                component: "control_algorithm",
+                operation: "validate_input",
+                local_card: None,
+                peer_card: None,
+                cycle_id: Some(cycle_id),
+                source: anyhow::anyhow!("algorithm input was NaN or infinite"),
+            });
+        }
+
+        let output = run_control_math(input)
+            .context("running control algorithm math")
+            .map_err(|source| AlgorithmFault {
+                kind: AlgorithmFaultKind::NumericalInstability,
+                class: FaultClass::Internal,
+                component: "control_algorithm",
+                operation: "compute_output",
+                local_card: None,
+                peer_card: None,
+                cycle_id: Some(cycle_id),
+                source,
+            })?;
+
+        if !output.command_value.is_finite() {
+            return Err(AlgorithmFault {
+                kind: AlgorithmFaultKind::UnsafeOutput,
+                class: FaultClass::DataQuality,
+                component: "control_algorithm",
+                operation: "validate_output",
+                local_card: None,
+                peer_card: None,
+                cycle_id: Some(cycle_id),
+                source: anyhow::anyhow!("algorithm produced unsafe output: {:?}", output),
+            });
+        }
+
+        Ok(output)
+    }
+}
+```
+
+Again, the engine sees:
+
+```rust
+AlgorithmFaultKind::UnsafeOutput
+```
+
+not a raw math/internal helper failure.
+
+---
+
+# 5. Service 3: display or user notification
+
+This service reports visible system status.
+
+```rust
+pub trait DisplayPort {
+    fn show_warning(&mut self, message: &str) -> Result<(), DisplayFault>;
+    fn show_fault(&mut self, message: &str) -> Result<(), DisplayFault>;
+}
+```
+
+Fault kind:
+
+```rust
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum DisplayFaultKind {
+    DeviceUnavailable,
+    WriteFailed,
+    InvalidMessage,
+    Unexpected,
+}
+
+pub type DisplayFault = Fault<DisplayFaultKind>;
+```
+
+Implementation:
+
+```rust
+pub struct HardwareDisplay;
+
+impl DisplayPort for HardwareDisplay {
+    fn show_fault(&mut self, message: &str) -> Result<(), DisplayFault> {
+        if message.trim().is_empty() {
+            return Err(DisplayFault {
+                kind: DisplayFaultKind::InvalidMessage,
+                class: FaultClass::DataQuality,
+                component: "hardware_display",
+                operation: "show_fault",
+                local_card: None,
+                peer_card: None,
+                cycle_id: None,
+                source: anyhow::anyhow!("attempted to display an empty fault message"),
+            });
+        }
+
+        write_to_display_device(message)
+            .context("writing user-visible fault message to hardware display")
+            .map_err(|source| DisplayFault {
+                kind: DisplayFaultKind::WriteFailed,
+                class: FaultClass::Hardware,
+                component: "hardware_display",
+                operation: "show_fault",
+                local_card: None,
+                peer_card: None,
+                cycle_id: None,
+                source,
+            })
+    }
+
+    fn show_warning(&mut self, message: &str) -> Result<(), DisplayFault> {
+        write_to_display_device(message)
+            .context("writing warning message to hardware display")
+            .map_err(|source| DisplayFault {
+                kind: DisplayFaultKind::WriteFailed,
+                class: FaultClass::Hardware,
+                component: "hardware_display",
+                operation: "show_warning",
+                local_card: None,
+                peer_card: None,
+                cycle_id: None,
+                source,
+            })
+    }
+}
+```
+
+---
+
+# 6. Roll service faults into an engine fault
+
+The engine can have one rollup type:
+
+```rust
+#[derive(Debug, Error)]
+pub enum EngineFault {
+    #[error("card link fault")]
+    CardLink(#[from] CardLinkFault),
+
+    #[error("algorithm fault")]
+    Algorithm(#[from] AlgorithmFault),
+
+    #[error("display fault")]
+    Display(#[from] DisplayFault),
+}
+```
+
+This lets engine code use `?` cleanly:
+
+```rust
+self.card_link.receive_frame(cycle_id)?;
+self.algorithm.compute_output(input, cycle_id)?;
+self.display.show_fault("...")?;
+```
+
+The engine still preserves type information:
+
+```rust
+EngineFault::CardLink(fault)
+EngineFault::Algorithm(fault)
+EngineFault::Display(fault)
+```
+
+---
+
+# 7. Fault actions
+
+The engine should not necessarily decide directly from low-level fault details. Usually, it should map faults to actions.
+
+```rust
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FaultAction {
+    IgnoreAndContinue,
+    RetryNextCycle,
+    ReconnectCardLink,
+    DiscardCurrentInput,
+    EnterDegradedMode,
+    RaiseUserVisibleFault,
+    RequireSystemRestart,
+}
+```
+
+This is the operational language of the forever loop.
+
+---
+
+# 8. Fault policy
+
+The policy can track repeated faults and escalate behavior.
+
+```rust
+use std::collections::HashMap;
+
+pub struct FaultPolicy {
+    recent_card_link_timeouts: usize,
+    recent_bad_frames: usize,
+    recent_algorithm_faults: usize,
+}
+
+impl FaultPolicy {
+    pub fn new() -> Self {
+        Self {
+            recent_card_link_timeouts: 0,
+            recent_bad_frames: 0,
+            recent_algorithm_faults: 0,
+        }
+    }
+
+    pub fn record_success(&mut self) {
+        self.recent_card_link_timeouts = 0;
+        self.recent_bad_frames = 0;
+        self.recent_algorithm_faults = 0;
+    }
+
+    pub fn decide(&mut self, fault: &EngineFault) -> FaultAction {
+        match fault {
+            EngineFault::CardLink(fault) => self.decide_card_link(fault),
+            EngineFault::Algorithm(fault) => self.decide_algorithm(fault),
+            EngineFault::Display(fault) => self.decide_display(fault),
+        }
+    }
+
+    fn decide_card_link(&mut self, fault: &CardLinkFault) -> FaultAction {
+        match fault.kind {
+            CardLinkFaultKind::Timeout => {
+                self.recent_card_link_timeouts += 1;
+
+                if self.recent_card_link_timeouts >= 3 {
+                    FaultAction::ReconnectCardLink
+                } else {
+                    FaultAction::RetryNextCycle
+                }
+            }
+
+            CardLinkFaultKind::PeerDisconnected
+            | CardLinkFaultKind::LinkDown
+            | CardLinkFaultKind::ConnectFailed => {
+                FaultAction::ReconnectCardLink
+            }
+
+            CardLinkFaultKind::MalformedFrame
+            | CardLinkFaultKind::BadPeerData => {
+                self.recent_bad_frames += 1;
+
+                if self.recent_bad_frames >= 5 {
+                    FaultAction::RaiseUserVisibleFault
+                } else {
+                    FaultAction::DiscardCurrentInput
+                }
+            }
+
+            CardLinkFaultKind::ConfigurationMismatch => {
+                FaultAction::RaiseUserVisibleFault
+            }
+
+            CardLinkFaultKind::HardwareUnavailable => {
+                FaultAction::EnterDegradedMode
+            }
+
+            CardLinkFaultKind::Unexpected => {
+                FaultAction::RetryNextCycle
+            }
+        }
+    }
+
+    fn decide_algorithm(&mut self, fault: &AlgorithmFault) -> FaultAction {
+        match fault.kind {
+            AlgorithmFaultKind::InvalidInput
+            | AlgorithmFaultKind::InputOutOfRange
+            | AlgorithmFaultKind::InsufficientData => {
+                FaultAction::DiscardCurrentInput
+            }
+
+            AlgorithmFaultKind::NumericalInstability
+            | AlgorithmFaultKind::ConvergenceFailed => {
+                self.recent_algorithm_faults += 1;
+
+                if self.recent_algorithm_faults >= 5 {
+                    FaultAction::EnterDegradedMode
+                } else {
+                    FaultAction::RetryNextCycle
+                }
+            }
+
+            AlgorithmFaultKind::UnsafeOutput => {
+                FaultAction::EnterDegradedMode
+            }
+
+            AlgorithmFaultKind::Unexpected => {
+                FaultAction::RaiseUserVisibleFault
+            }
+        }
+    }
+
+    fn decide_display(&mut self, fault: &DisplayFault) -> FaultAction {
+        match fault.kind {
+            DisplayFaultKind::DeviceUnavailable
+            | DisplayFaultKind::WriteFailed => {
+                // The display failing should probably not take down the core loop.
+                FaultAction::IgnoreAndContinue
+            }
+
+            DisplayFaultKind::InvalidMessage => {
+                FaultAction::IgnoreAndContinue
+            }
+
+            DisplayFaultKind::Unexpected => {
+                FaultAction::RetryNextCycle
+            }
+        }
+    }
+}
+```
+
+This is where repeated faults become meaningful.
+
+A single Ethernet timeout may just retry.
+Three timeouts may reconnect.
+Ten timeouts may enter degraded mode or report a user-visible issue.
+
+---
+
+# 9. Engine implementation
+
+The engine owns the loop and uses the services.
+
+```rust
+pub struct Engine<C, A, D> {
+    card_link: C,
+    algorithm: A,
+    display: D,
+    fault_policy: FaultPolicy,
+    cycle_id: u64,
+    degraded: bool,
+}
+
+impl<C, A, D> Engine<C, A, D>
+where
+    C: CardLinkPort,
+    A: AlgorithmPort,
+    D: DisplayPort,
+{
+    pub fn new(card_link: C, algorithm: A, display: D) -> Self {
+        Self {
+            card_link,
+            algorithm,
+            display,
+            fault_policy: FaultPolicy::new(),
+            cycle_id: 0,
+            degraded: false,
+        }
+    }
+
+    pub fn start(&mut self) -> ! {
+        loop {
+            self.cycle_id += 1;
+
+            match self.run_one_cycle() {
+                Ok(()) => {
+                    self.fault_policy.record_success();
+                }
+
+                Err(fault) => {
+                    let action = self.fault_policy.decide(&fault);
+                    self.apply_fault_action(action, fault);
+                }
+            }
+        }
+    }
+
+    fn run_one_cycle(&mut self) -> Result<(), EngineFault> {
+        let frame = match self.card_link.receive_frame(self.cycle_id)? {
+            ReceiveOutcome::Received(frame) => frame,
+
+            ReceiveOutcome::NoDataAvailable => {
+                return Ok(());
+            }
+
+            ReceiveOutcome::PeerNotReady => {
+                return Ok(());
+            }
+        };
+
+        let input = self.frame_to_algorithm_input(frame)?;
+
+        let output = self
+            .algorithm
+            .compute_output(input, self.cycle_id)?;
+
+        let output_frame = self.output_to_frame(output);
+
+        self.card_link
+            .send_frame(output_frame, self.cycle_id)?;
+
+        Ok(())
+    }
+
+    fn frame_to_algorithm_input(&self, frame: Frame) -> Result<AlgorithmInput, EngineFault> {
+        // In a real app, this might validate/decode fields.
+        // This example treats empty payload as bad peer data and converts it
+        // into a CardLinkFault because the bad data came from the peer frame.
+        if frame.payload.is_empty() {
+            return Err(CardLinkFault {
+                kind: CardLinkFaultKind::BadPeerData,
+                class: FaultClass::DataQuality,
+                component: "engine",
+                operation: "frame_to_algorithm_input",
+                local_card: None,
+                peer_card: None,
+                cycle_id: Some(self.cycle_id),
+                source: anyhow::anyhow!("received empty payload from peer card"),
+            }
+            .into());
+        }
+
+        Ok(AlgorithmInput {
+            value: frame.payload[0] as f64,
+        })
+    }
+
+    fn output_to_frame(&self, output: AlgorithmOutput) -> Frame {
+        Frame {
+            payload: vec![output.command_value as u8],
+        }
+    }
+
+    fn apply_fault_action(&mut self, action: FaultAction, fault: EngineFault) {
+        match action {
+            FaultAction::IgnoreAndContinue => {
+                tracing::debug!(error = ?fault, "ignoring non-critical fault");
+            }
+
+            FaultAction::RetryNextCycle => {
+                tracing::warn!(error = ?fault, "fault occurred; retrying next cycle");
+            }
+
+            FaultAction::ReconnectCardLink => {
+                tracing::warn!(error = ?fault, "attempting card link reconnect");
+
+                if let Err(reconnect_fault) = self.card_link.reconnect() {
+                    tracing::error!(
+                        error = ?reconnect_fault,
+                        "card link reconnect failed"
+                    );
+                }
+            }
+
+            FaultAction::DiscardCurrentInput => {
+                tracing::warn!(error = ?fault, "discarding current input and continuing");
+            }
+
+            FaultAction::EnterDegradedMode => {
+                tracing::error!(error = ?fault, "entering degraded mode");
+                self.degraded = true;
+
+                let _ = self.display.show_fault(
+                    "System degraded. Service required."
+                );
+            }
+
+            FaultAction::RaiseUserVisibleFault => {
+                tracing::error!(error = ?fault, "raising user-visible fault");
+
+                let _ = self.display.show_fault(
+                    "System fault detected. Restart or service may be required."
+                );
+            }
+
+            FaultAction::RequireSystemRestart => {
+                tracing::error!(error = ?fault, "system restart required");
+
+                let _ = self.display.show_fault(
+                    "Restart required."
+                );
+            }
+        }
+    }
+}
+```
+
+This is the central idea:
+
+```rust
+match self.run_one_cycle() {
+    Ok(()) => { ... }
+    Err(fault) => {
+        let action = self.fault_policy.decide(&fault);
+        self.apply_fault_action(action, fault);
+    }
+}
+```
+
+The forever loop does not panic.
+It classifies, logs, mitigates, and continues.
+
+---
+
+# 10. Thin `main`
+
+The application main wires concrete adapters into the engine.
+
+```rust
+fn main() {
+    tracing_subscriber::fmt::init();
+
+    let card_link = EthernetCardLink {
+        local_card: CardId(1),
+        peer_card: CardId(2),
+        peer_addr: "192.168.10.20:5000".to_string(),
+        socket: FakeSocket::new(),
+    };
+
+    let algorithm = ControlAlgorithm;
+    let display = HardwareDisplay;
+
+    let mut engine = Engine::new(card_link, algorithm, display);
+
+    engine.start();
+}
+```
+
+This is the composition root.
+
+The application decides:
+
+```text
+This app uses EthernetCardLink
+This app uses ControlAlgorithm
+This app uses HardwareDisplay
+```
+
+The engine only depends on traits:
+
+```text
+CardLinkPort
+AlgorithmPort
+DisplayPort
+```
+
+---
+
+# What the engine sees during a real failure
+
+Suppose the Ethernet receive operation times out.
+
+The call path is:
+
+```text
+engine.start()
+  loop
+    run_one_cycle()
+      card_link.receive_frame()
+        socket.try_receive()
+          timeout
+```
+
+The adapter creates:
+
+```rust
+CardLinkFault {
+    kind: CardLinkFaultKind::Timeout,
+    class: FaultClass::Transient,
+    component: "ethernet_card_link",
+    operation: "receive_frame",
+    local_card: Some(CardId(1)),
+    peer_card: Some(CardId(2)),
+    cycle_id: Some(42),
+    source: anyhow error chain,
+}
+```
+
+Then it rolls up automatically into:
+
+```rust
+EngineFault::CardLink(...)
+```
+
+The engine policy sees:
+
+```rust
+EngineFault::CardLink(fault)
+```
+
+Then:
+
+```rust
+fault.kind == CardLinkFaultKind::Timeout
+```
+
+The policy says:
+
+```text
+first timeout  -> RetryNextCycle
+third timeout  -> ReconnectCardLink
+```
+
+The engine applies:
+
+```rust
+FaultAction::ReconnectCardLink
+```
+
+Logs include the full context chain.
+
+---
+
+# What should be a fault vs an outcome?
+
+This is one of the most important distinctions.
+
+## Normal outcome
+
+Use an enum when the condition is expected during ordinary operation.
+
+```rust
+ReceiveOutcome::NoDataAvailable
+ReceiveOutcome::PeerNotReady
+```
+
+These should not be faults.
+
+## Recoverable fault
+
+Use a fault when something abnormal happened, but the engine can continue.
+
+```rust
+CardLinkFaultKind::Timeout
+CardLinkFaultKind::MalformedFrame
+AlgorithmFaultKind::InvalidInput
+```
+
+## Operationally serious fault
+
+Use a fault when the system should keep running but change mode.
+
+```rust
+CardLinkFaultKind::HardwareUnavailable
+AlgorithmFaultKind::UnsafeOutput
+```
+
+## Bug or invariant violation
+
+Use panic only when the program itself is wrong and continuing would be invalid.
+
+Examples:
+
+```text
+impossible enum state
+internal data structure corruption
+logic invariant violated
+unsafe assumption broken
+```
+
+In your hardware forever-loop world, most runtime problems should be **faults**, not panics.
+
+---
+
+# How service layers create and roll up faults
+
+The pattern is:
+
+```text
+Implementation error occurs
+    ↓
+Adapter adds anyhow context
+    ↓
+Adapter maps to service fault kind
+    ↓
+Service returns typed fault
+    ↓
+Engine rolls service fault into EngineFault
+    ↓
+FaultPolicy maps EngineFault to FaultAction
+    ↓
+Engine applies FaultAction
+```
+
+Concrete example:
+
+```text
+std::io::ErrorKind::TimedOut
+    ↓
+.context("receiving raw Ethernet payload from peer card 2")
+    ↓
+CardLinkFaultKind::Timeout
+    ↓
+EngineFault::CardLink
+    ↓
+FaultAction::RetryNextCycle or ReconnectCardLink
+```
+
+Another example:
+
+```text
+math helper returns NaN
+    ↓
+.context("running control algorithm math")
+    ↓
+AlgorithmFaultKind::NumericalInstability
+    ↓
+EngineFault::Algorithm
+    ↓
+FaultAction::RetryNextCycle or EnterDegradedMode
+```
+
+Another:
+
+```text
+display write fails
+    ↓
+.context("writing user-visible fault message to hardware display")
+    ↓
+DisplayFaultKind::WriteFailed
+    ↓
+EngineFault::Display
+    ↓
+FaultAction::IgnoreAndContinue
+```
+
+The same shape works across all services.
+
+---
+
+# The core design rule
+
+The most useful rule is:
+
+> A service fault kind should describe what the engine can do about the failure, not every technical detail that caused it.
+
+So avoid this:
+
+```rust
+enum CardLinkFaultKind {
+    IoError,
+    Utf8Error,
+    SerdeError,
+    ParseIntError,
+    SocketOptionError,
+}
+```
+
+Prefer this:
+
+```rust
+enum CardLinkFaultKind {
+    Timeout,
+    PeerDisconnected,
+    MalformedFrame,
+    BadPeerData,
+    HardwareUnavailable,
+    ConfigurationMismatch,
+    Unexpected,
+}
+```
+
+The low-level details still exist. They live in `source`.
+
+---
+
+# Summary
+
+The clean architecture looks like this:
+
+```text
+main
+  creates concrete adapters
+  creates engine
+  calls engine.start()
+
+engine
+  runs forever loop
+  calls service ports
+  receives EngineFault
+  asks FaultPolicy what to do
+  applies FaultAction
+
+service ports
+  define traits
+  define typed fault kinds
+  return Result<T, ServiceFault>
+
+adapters
+  call low-level libraries
+  attach anyhow context
+  map implementation errors into typed service faults
+
+faults
+  contain typed kind + class + operation context + source chain
+
+fault policy
+  tracks repeated faults
+  maps faults to operational actions
+```
+
+The engine gets typed control flow:
+
+```rust
+CardLinkFaultKind::Timeout
+AlgorithmFaultKind::UnsafeOutput
+DisplayFaultKind::WriteFailed
+```
+
+The logs get rich diagnostic context:
+
+```text
+ethernet_card_link::receive_frame failed with Timeout
+cycle_id=42
+local_card=1
+peer_card=2
+
+Caused by:
+  receiving raw Ethernet payload from peer card CardId(2) at 192.168.10.20:5000
+  operation timed out
+```
+
+That is the balance you are looking for:
+
+```text
+typed enough for orchestration
+contextual enough for debugging
+abstract enough to preserve hexagonal boundaries
+structured enough for forever-loop mitigation
+```
