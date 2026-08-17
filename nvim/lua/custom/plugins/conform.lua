@@ -24,6 +24,7 @@ return {
       end,
       formatters_by_ft = {
         lua = { 'stylua' },
+        odin = { 'odinfmt' },
         typst = { 'typstyle' },
         zig = { 'zigfmt' },
         -- Conform can also run multiple formatters sequentially

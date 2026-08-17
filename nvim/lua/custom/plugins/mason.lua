@@ -135,6 +135,7 @@ return {
 
       local servers = {
         gopls = {},
+        ols = {},
 
         nim_langserver = {}, -- aliased to 'nimls' below
         tinymist = {},

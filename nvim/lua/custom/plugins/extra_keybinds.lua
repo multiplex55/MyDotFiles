@@ -1428,7 +1428,7 @@ function M.setup()
       map('<leader>cT', '<Nop>', '[C]ode [T]ypst')
 
       map('<leader>cTp', function()
-        if run_typst_cmd('TypstPreviewToggle') then
+        if run_typst_cmd 'TypstPreviewToggle' then
           return
         end
         run_typst_cmd('TypstPreview', 'Typst preview command is unavailable. Install/configure your Typst preview plugin.')
@@ -1545,6 +1545,167 @@ function M.setup()
     end,
   })
 
+  -- =========================
+  -- [Code Odin] keymaps
+  -- =========================
+  local function setup_odin_keymaps(buf)
+    if not vim.api.nvim_buf_is_valid(buf) then
+      return
+    end
+
+    if vim.bo[buf].filetype ~= 'odin' then
+      return
+    end
+
+    register_buffer_groups(buf, {
+      { '<leader>co', group = '[C]ode [O]din', mode = 'n' },
+    })
+
+    local function odin_available()
+      return ensure_executable('odin', 'Odin compiler not found in PATH')
+    end
+
+    local function current_package()
+      local file = vim.api.nvim_buf_get_name(buf)
+
+      if file == '' then
+        vim.notify('Current Odin buffer has no file path', vim.log.levels.WARN)
+        return nil
+      end
+
+      return vim.fs.dirname(file)
+    end
+
+    local function run_odin(args, title)
+      if not odin_available() then
+        return
+      end
+
+      local cmd = { 'odin' }
+      vim.list_extend(cmd, args)
+
+      run_build_cmd(cmd, title)
+    end
+
+    vim.keymap.set('n', '<leader>co', '<Nop>', {
+      buffer = buf,
+      desc = '[C]ode [O]din',
+    })
+
+    -- Run the package containing the current file.
+    vim.keymap.set('n', '<leader>cor', function()
+      local package = current_package()
+
+      if not package then
+        return
+      end
+
+      run_odin({ 'run', package }, 'Odin: run')
+    end, {
+      buffer = buf,
+      desc = '[C]ode [O]din [R]un',
+    })
+
+    -- Build the package containing the current file.
+    vim.keymap.set('n', '<leader>cob', function()
+      local package = current_package()
+
+      if not package then
+        return
+      end
+
+      run_odin({ 'build', package }, 'Odin: build')
+    end, {
+      buffer = buf,
+      desc = '[C]ode [O]din [B]uild',
+    })
+
+    -- Type-check the package without building an executable.
+    vim.keymap.set('n', '<leader>coc', function()
+      local package = current_package()
+
+      if not package then
+        return
+      end
+
+      run_odin({ 'check', package }, 'Odin: check')
+    end, {
+      buffer = buf,
+      desc = '[C]ode [O]din [C]heck',
+    })
+
+    -- Run Odin's additional vet checks.
+    vim.keymap.set('n', '<leader>cov', function()
+      local package = current_package()
+
+      if not package then
+        return
+      end
+
+      run_odin({ 'check', package, '-vet' }, 'Odin: check -vet')
+    end, {
+      buffer = buf,
+      desc = '[C]ode [O]din [V]et',
+    })
+
+    -- Run tests for the package containing the current file.
+    vim.keymap.set('n', '<leader>cot', function()
+      local package = current_package()
+
+      if not package then
+        return
+      end
+
+      run_odin({ 'test', package }, 'Odin: test')
+    end, {
+      buffer = buf,
+      desc = '[C]ode [O]din [T]est',
+    })
+
+    -- Format using odinfmt through Conform.
+    vim.keymap.set('n', '<leader>cof', function()
+      if not ensure_executable('odinfmt', 'odinfmt not found. Install/update OLS through Mason.') then
+        return
+      end
+
+      require('conform').format {
+        bufnr = buf,
+        lsp_format = 'fallback',
+      }
+    end, {
+      buffer = buf,
+      desc = '[C]ode [O]din [F]ormat',
+    })
+
+    -- Show package documentation.
+    vim.keymap.set('n', '<leader>cod', function()
+      local package = current_package()
+
+      if not package then
+        return
+      end
+
+      run_odin({ 'doc', package }, 'Odin: doc')
+    end, {
+      buffer = buf,
+      desc = '[C]ode [O]din [D]oc',
+    })
+  end
+
+  -- Future Odin buffers.
+  vim.api.nvim_create_autocmd('FileType', {
+    pattern = 'odin',
+    callback = function(ev)
+      setup_odin_keymaps(ev.buf)
+    end,
+  })
+
+  -- Odin buffers that were already opened before VeryLazy/M.setup().
+  for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+    if vim.api.nvim_buf_is_valid(buf) and vim.bo[buf].filetype == 'odin' then
+      setup_odin_keymaps(buf)
+    end
+  end
   -- =========================
   -- [Code AHK] keymaps
   -- =========================
