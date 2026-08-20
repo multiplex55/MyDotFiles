@@ -204,8 +204,25 @@ function M.setup()
   local save_all_before_exec
   local run_build_cmd
 
-  ----- NIM KEYBINDS (using Zig via zigcc) -----
-  local function nim_exec_in_tab(backend, extra_flags, run)
+  ----- NIM KEYBINDS -----
+  -- Existing <leader>cnc* / <leader>cnp* mappings use Nim's normal/default
+  -- C/C++ compiler configuration. Mirrored <leader>cnz* mappings use Zig
+  -- through the zigcc / zigcpp wrappers installed by: nimble install zigcc
+  do
+    local wk = load_which_key()
+    if wk then
+      wk.add {
+        { '<leader>cn', group = '[C]ode [N]im', mode = 'n' },
+        { '<leader>cnc', group = '[C]ode [N]im [C] backend', mode = 'n' },
+        { '<leader>cnp', group = '[C]ode [N]im c[P]p', mode = 'n' },
+        { '<leader>cnz', group = '[C]ode [N]im [Z]ig', mode = 'n' },
+        { '<leader>cnzc', group = '[C]ode [N]im [Z]ig [C] backend', mode = 'n' },
+        { '<leader>cnzp', group = '[C]ode [N]im [Z]ig c[P]p', mode = 'n' },
+      }
+    end
+  end
+
+  local function nim_exec_in_tab(backend, extra_flags, run, toolchain)
     if not save_all_before_exec() then
       return
     end
@@ -215,20 +232,35 @@ function M.setup()
     local full_path_with_ext = vim.fn.expand '%:p'
 
     local run_part = run and ' -r' or ''
+    local compiler_flags = ''
 
-    -- Use Zig as the C/C++ toolchain via zigcc / zigcpp wrappers
-    -- Requires: nimble install zigcc
-    local zig_flags
-    if backend == 'cpp' then
-      zig_flags = '--cc:clang --clang.cpp.exe="zigcpp.cmd" --clang.cpp.linkerexe="zigcpp.cmd"'
-    else
-      zig_flags = '--cc:clang --clang.exe="zigcc.cmd" --clang.linkerexe="zigcc.cmd"'
+    if toolchain == 'zig' then
+      local is_windows = vim.fn.has 'win32' == 1
+      local zigcc = is_windows and 'zigcc.cmd' or 'zigcc'
+      local zigcpp = is_windows and 'zigcpp.cmd' or 'zigcpp'
+      local wrapper = backend == 'cpp' and zigcpp or zigcc
+
+      if vim.fn.executable 'zig' ~= 1 then
+        vim.notify('Zig compiler not found in PATH.', vim.log.levels.WARN)
+        return
+      end
+
+      if vim.fn.executable(wrapper) ~= 1 then
+        vim.notify(('Nim Zig wrapper not found: %s. Run: nimble install zigcc'):format(wrapper), vim.log.levels.WARN)
+        return
+      end
+
+      if backend == 'cpp' then
+        compiler_flags = ('--cc:clang --clang.cpp.exe="%s" --clang.cpp.linkerexe="%s" --forceBuild:on'):format(zigcpp, zigcpp)
+      else
+        compiler_flags = ('--cc:clang --clang.exe="%s" --clang.linkerexe="%s" --forceBuild:on'):format(zigcc, zigcc)
+      end
     end
 
     local cmd = string.format(
       ':tabnew | term nim %s %s %s%s --out:"%s\\bin\\%s" "%s"',
       backend,
-      zig_flags,
+      compiler_flags,
       extra_flags,
       run_part,
       dir_path,
@@ -238,70 +270,115 @@ function M.setup()
 
     vim.cmd(cmd)
   end
-
   ------------------------------------------------------------------------
-  -- C backend: RUN keybinds
+  -- Nim default toolchain: C backend
   ------------------------------------------------------------------------
 
-  -- C backend: release + run (safe-ish)
+  -- C backend: release + run
   vim.keymap.set('n', '<leader>cncr', function()
-    nim_exec_in_tab('c', '-d:release --opt:speed', true)
+    nim_exec_in_tab('c', '-d:release --opt:speed', true, 'default')
   end, { buffer = buf, desc = '[C]ode [N]im [C] backend [R]un release' })
 
   -- C backend: *fastest* (danger) + run
   vim.keymap.set('n', '<leader>cncf', function()
-    nim_exec_in_tab('c', '-d:release -d:danger --opt:speed ' .. '--passC:"-march=native -mtune=native -flto" ' .. '--passL:"-s -flto"', true)
+    nim_exec_in_tab('c', '-d:release -d:danger --opt:speed ' .. '--passC:"-march=native -mtune=native -flto" ' .. '--passL:"-s -flto"', true, 'default')
   end, { buffer = buf, desc = '[C]ode [N]im [C] backend [F]astest (danger) run' })
 
   -- C backend: debug + run
   vim.keymap.set('n', '<leader>cncd', function()
-    nim_exec_in_tab('c', '-d:debug --lineTrace:on --stackTrace:on', true)
+    nim_exec_in_tab('c', '-d:debug --lineTrace:on --stackTrace:on', true, 'default')
   end, { buffer = buf, desc = '[C]ode [N]im [C] backend [D]ebug run' })
-
-  ------------------------------------------------------------------------
-  -- C backend: BUILD-ONLY RELEASE keybinds
-  ------------------------------------------------------------------------
 
   -- C backend: release build (no run)
   vim.keymap.set('n', '<leader>cncb', function()
-    nim_exec_in_tab('c', '-d:release --opt:speed --errorMax:0', false)
+    nim_exec_in_tab('c', '-d:release --opt:speed --errorMax:0', false, 'default')
   end, { buffer = buf, desc = '[C]ode [N]im [C] backend [B]uild release' })
 
   -- C backend: *fastest* (danger) build (no run)
   vim.keymap.set('n', '<leader>cncF', function()
-    nim_exec_in_tab('c', '-d:release -d:danger --opt:speed ' .. '--passC:"-march=native -mtune=native -flto" ' .. '--passL:"-s -flto"', false)
+    nim_exec_in_tab('c', '-d:release -d:danger --opt:speed ' .. '--passC:"-march=native -mtune=native -flto" ' .. '--passL:"-s -flto"', false, 'default')
   end, { buffer = buf, desc = '[C]ode [N]im [C] backend [F]astest (danger) build' })
 
+  -- C backend: trace + run
+  vim.keymap.set('n', '<leader>cnct', function()
+    vim.cmd 'write'
+    nim_exec_in_tab('c', '-d:debug --stackTrace:on --lineTrace:on --debuginfo --debugger:native --opt:none --errorMax:0', true, 'default')
+  end, { buffer = buf, desc = '[C]ode [N]im [C] backend [T]race run (full stack/line trace)' })
+
   ------------------------------------------------------------------------
-  -- C++ backend: RUN keybinds
+  -- Nim default toolchain: C++ backend
   ------------------------------------------------------------------------
 
   -- C++ backend: release + run
   vim.keymap.set('n', '<leader>cnpr', function()
-    nim_exec_in_tab('cpp', '-d:release', true)
+    nim_exec_in_tab('cpp', '-d:release', true, 'default')
   end, { buffer = buf, desc = '[C]ode [N]im c[P]p [R]un release' })
 
   -- C++ backend: debug + run
   vim.keymap.set('n', '<leader>cnpd', function()
-    nim_exec_in_tab('cpp', '-d:debug --lineTrace:on --stackTrace:on', true)
+    nim_exec_in_tab('cpp', '-d:debug --lineTrace:on --stackTrace:on', true, 'default')
   end, { buffer = buf, desc = '[C]ode [N]im c[P]p [D]ebug run' })
-
-  ------------------------------------------------------------------------
-  -- C++ backend: BUILD-ONLY RELEASE keybind
-  ------------------------------------------------------------------------
 
   -- C++ backend: release build (no run)
   vim.keymap.set('n', '<leader>cnpb', function()
-    nim_exec_in_tab('cpp', '-d:release', false)
+    nim_exec_in_tab('cpp', '-d:release', false, 'default')
   end, { buffer = buf, desc = '[C]ode [N]im c[P]p [B]uild release' })
 
   ------------------------------------------------------------------------
-  -- C backend: TRACE (max stack/line trace) + run
+  -- Nim via Zig: C backend
+  -- Prefix: <leader>cnzc = [C]ode [N]im [Z]ig [C]
   ------------------------------------------------------------------------
-  vim.keymap.set('n', '<leader>cnct', function()
+
+  -- Zig C backend: release + run
+  vim.keymap.set('n', '<leader>cnzcr', function()
+    nim_exec_in_tab('c', '-d:release --opt:speed', true, 'zig')
+  end, { buffer = buf, desc = '[C]ode [N]im [Z]ig [C] backend [R]un release' })
+
+  -- Zig C backend: *fastest* (danger) + run
+  vim.keymap.set('n', '<leader>cnzcf', function()
+    nim_exec_in_tab('c', '-d:release -d:danger --opt:speed ' .. '--passC:"-march=native -mtune=native -flto" ' .. '--passL:"-s -flto"', true, 'zig')
+  end, { buffer = buf, desc = '[C]ode [N]im [Z]ig [C] backend [F]astest (danger) run' })
+
+  -- Zig C backend: debug + run
+  vim.keymap.set('n', '<leader>cnzcd', function()
+    nim_exec_in_tab('c', '-d:debug --lineTrace:on --stackTrace:on', true, 'zig')
+  end, { buffer = buf, desc = '[C]ode [N]im [Z]ig [C] backend [D]ebug run' })
+
+  -- Zig C backend: release build (no run)
+  vim.keymap.set('n', '<leader>cnzcb', function()
+    nim_exec_in_tab('c', '-d:release --opt:speed --errorMax:0', false, 'zig')
+  end, { buffer = buf, desc = '[C]ode [N]im [Z]ig [C] backend [B]uild release' })
+
+  -- Zig C backend: *fastest* (danger) build (no run)
+  vim.keymap.set('n', '<leader>cnzcF', function()
+    nim_exec_in_tab('c', '-d:release -d:danger --opt:speed ' .. '--passC:"-march=native -mtune=native -flto" ' .. '--passL:"-s -flto"', false, 'zig')
+  end, { buffer = buf, desc = '[C]ode [N]im [Z]ig [C] backend [F]astest (danger) build' })
+
+  -- Zig C backend: trace + run
+  vim.keymap.set('n', '<leader>cnzct', function()
     vim.cmd 'write'
-    nim_exec_in_tab('c', '-d:debug --stackTrace:on --lineTrace:on --debuginfo --debugger:native --opt:none --errorMax:0', true)
-  end, { buffer = buf, desc = '[C]ode [N]im [C] backend [T]race run (full stack/line trace)' })
+    nim_exec_in_tab('c', '-d:debug --stackTrace:on --lineTrace:on --debuginfo --debugger:native --opt:none --errorMax:0', true, 'zig')
+  end, { buffer = buf, desc = '[C]ode [N]im [Z]ig [C] backend [T]race run (full stack/line trace)' })
+
+  ------------------------------------------------------------------------
+  -- Nim via Zig: C++ backend
+  -- Prefix: <leader>cnzp = [C]ode [N]im [Z]ig c[P]p
+  ------------------------------------------------------------------------
+
+  -- Zig C++ backend: release + run
+  vim.keymap.set('n', '<leader>cnzpr', function()
+    nim_exec_in_tab('cpp', '-d:release', true, 'zig')
+  end, { buffer = buf, desc = '[C]ode [N]im [Z]ig c[P]p [R]un release' })
+
+  -- Zig C++ backend: debug + run
+  vim.keymap.set('n', '<leader>cnzpd', function()
+    nim_exec_in_tab('cpp', '-d:debug --lineTrace:on --stackTrace:on', true, 'zig')
+  end, { buffer = buf, desc = '[C]ode [N]im [Z]ig c[P]p [D]ebug run' })
+
+  -- Zig C++ backend: release build (no run)
+  vim.keymap.set('n', '<leader>cnzpb', function()
+    nim_exec_in_tab('cpp', '-d:release', false, 'zig')
+  end, { buffer = buf, desc = '[C]ode [N]im [Z]ig c[P]p [B]uild release' })
 
   ------------------------------------------------------------------------
   -- Nimpretty formatting keybinds

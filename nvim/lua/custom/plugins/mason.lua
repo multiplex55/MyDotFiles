@@ -137,7 +137,7 @@ return {
         gopls = {},
         ols = {},
 
-        nim_langserver = {}, -- aliased to 'nimls' below
+        -- nim_langserver = {}, -- aliased to 'nimls' below
         tinymist = {},
         zls = {
           root_dir = function(fname)
@@ -167,7 +167,7 @@ return {
       require('mason-tool-installer').setup { ensure_installed = ensure_tools }
 
       local server_aliases = {
-        nim_langserver = 'nimls',
+        -- nim_langserver = 'nimls',
         tsserver = 'ts_ls',
       }
 
@@ -204,6 +204,37 @@ return {
       ---------------------------------------------------------------------------
       -- Custom non-Mason servers
       ---------------------------------------------------------------------------
+
+      -- NimLSP installed through Nimble instead of Mason.
+      --
+      -- NimLSP accepts the Nim installation root as its first argument.
+      -- Supplying it explicitly avoids NimLSP using the Nim installation
+      -- path that was embedded when nimlsp.exe was compiled.
+      do
+        local nimlsp = vim.fn.exepath 'nimlsp'
+        local nim_root = vim.fn.expand '~/.choosenim/toolchains/nim-2.2.10'
+
+        if nimlsp == '' then
+          vim.schedule(function()
+            vim.notify('nimlsp not found in PATH. Run: nimble install nimlsp', vim.log.levels.WARN)
+          end)
+        elseif vim.fn.filereadable(vim.fs.joinpath(nim_root, 'config', 'nim.cfg')) ~= 1 then
+          vim.schedule(function()
+            vim.notify('Invalid Nim root: ' .. nim_root, vim.log.levels.ERROR)
+          end)
+        else
+          vim.lsp.config('nimls', {
+            cmd = {
+              nimlsp,
+              nim_root,
+            },
+            capabilities = vim.tbl_deep_extend('force', {}, capabilities),
+          })
+
+          vim.lsp.enable 'nimls'
+        end
+      end
+
       do
         local ok, ahk = pcall(require, 'custom.ahk2')
         if ok then
